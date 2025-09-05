@@ -2,7 +2,7 @@
  * テーブル構造操作機能の型定義
  */
 
-import { CellPosition, SelectionRange } from './data-display-edit';
+import type { CellPosition, SelectionRange } from './data-display-edit';
 
 export interface StructureOperationResult {
   success: boolean;

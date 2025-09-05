@@ -2,7 +2,7 @@
  * Undo/Redo機能の型定義
  */
 
-import { CellPosition } from './data-display-edit';
+import type { CellPosition } from './data-display-edit';
 
 export interface UndoRedoState {
   undoStack: OperationHistory[];

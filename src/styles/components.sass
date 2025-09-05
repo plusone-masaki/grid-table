@@ -1,0 +1,101 @@
+// Grid table component styles
+
+.grid-table
+  position: relative
+  width: 100%
+  height: 100%
+  overflow: auto
+
+.grid-table__header
+  position: sticky
+  top: 0
+  z-index: $z-index-sticky
+  background-color: $grid-header-bg
+  border-bottom: $border-width solid $grid-border-color
+
+.grid-table__header-row
+  display: flex
+  min-height: $header-height
+
+.grid-table__header-cell
+  @include grid-cell-base
+  @include flex-center
+  background-color: $grid-header-bg
+  font-weight: $font-weight-bold
+  text-align: center
+  border-right: $border-width solid $grid-border-color
+  border-bottom: $border-width solid $grid-border-color
+
+.grid-table__body
+  position: relative
+  background-color: $grid-cell-bg
+
+.grid-table__row
+  display: flex
+  min-height: $cell-min-height
+  border-bottom: $border-width solid $grid-border-color
+
+.grid-table__row:hover
+  background-color: $grid-cell-hover-bg
+
+.grid-table__cell
+  @include grid-cell-base
+  @include transition(background-color)
+  position: relative
+  cursor: pointer
+
+.grid-table__cell:hover
+  @include grid-cell-hover
+
+.grid-table__cell--selected
+  @include grid-cell-selected
+
+.grid-table__cell--editing
+  @include grid-cell-editing
+
+.grid-table__cell--readonly
+  cursor: default
+
+.grid-table__cell-input
+  width: 100%
+  height: 100%
+  border: none
+  outline: none
+  background: transparent
+  font: inherit
+  color: inherit
+  padding: 0
+
+// Selection styles
+.grid-table__selection
+  position: absolute
+  pointer-events: none
+  z-index: 1
+
+.grid-table__selection--range
+  background-color: rgba(33, 150, 243, 0.1)
+  border: 1px solid $primary-color
+
+// Comment row styles
+.grid-table__comment-row
+  @include grid-cell-base
+  background-color: $light-color
+  color: $secondary-color
+  font-style: italic
+  border-bottom: $border-width solid $grid-border-color
+
+.grid-table__comment-row--editing
+  background-color: $grid-cell-editing-bg
+  color: $dark-color
+  font-style: normal
+
+// Virtualization styles
+.grid-table__virtual-container
+  position: relative
+  overflow: hidden
+
+.grid-table__virtual-content
+  position: absolute
+  top: 0
+  left: 0
+  width: 100%

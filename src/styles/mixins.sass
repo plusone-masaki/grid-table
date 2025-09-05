@@ -1,0 +1,55 @@
+// Utility mixins
+@mixin flex-center
+  display: flex
+  align-items: center
+  justify-content: center
+
+@mixin flex-between
+  display: flex
+  align-items: center
+  justify-content: space-between
+
+@mixin text-truncate
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: nowrap
+
+@mixin border-radius($radius: $border-radius)
+  border-radius: $radius
+
+@mixin box-shadow($shadow: 0 2px 4px rgba(0, 0, 0, 0.1))
+  box-shadow: $shadow
+
+@mixin transition($property: all, $duration: 0.15s, $timing: ease-in-out)
+  transition: $property $duration $timing
+
+// Responsive mixins
+@mixin media-up($breakpoint)
+  @media (min-width: $breakpoint)
+    @content
+
+@mixin media-down($breakpoint)
+  @media (max-width: $breakpoint - 1px)
+    @content
+
+// Grid mixins
+@mixin grid-cell-base
+  padding: $cell-padding
+  min-height: $cell-min-height
+  border-right: $border-width solid $grid-border-color
+  border-bottom: $border-width solid $grid-border-color
+  font-family: $font-family
+  font-size: $font-size-base
+  line-height: 1.4
+
+@mixin grid-cell-selected
+  background-color: $grid-cell-selected-bg
+  border: 2px solid $primary-color
+
+@mixin grid-cell-editing
+  background-color: $grid-cell-editing-bg
+  border: 2px solid $success-color
+  outline: none
+
+@mixin grid-cell-hover
+  background-color: $grid-cell-hover-bg
