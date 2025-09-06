@@ -145,6 +145,7 @@ const displayData = computed(() => {
   white-space: nowrap
 
 .grid-table__cell:first-child
+  background-color: #f8f9fa
   border-left: none
 
 .grid-table__row:first-child .grid-table__cell
