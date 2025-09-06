@@ -1,231 +1,157 @@
 <template lang="pug">
-div.grid-table(
+table.grid-table(
   ref="gridContainer"
-  @scroll="handleScroll"
-  @mousedown="handleMouseDown"
-  @mousemove="handleMouseMove"
-  @mouseup="handleMouseUp"
-  @keydown="handleKeyDown"
+  tabindex="0"
 )
-  div.grid-table__header
-    div.grid-table__header-row
-      div.grid-table__header-cell(
+  colgroup
+    col.grid-table__row-number-col(
+      :style="{ width: '40px' }"
+    )
+    col(
+      v-for="(_, colIndex) in columnCount"
+      :key="colIndex"
+      :style="{ width: `${defaultColWidth}px` }"
+    )
+  thead.grid-table__header
+    tr.grid-table__header-row
+      th.grid-table__header-cell
+      th.grid-table__header-cell(
         v-for="(header, colIndex) in columnHeaders"
         :key="colIndex"
-        :style="getHeaderCellStyle(colIndex)"
       ) {{ header }}
   
-  div.grid-table__body
-    div.grid-table__row(
-      v-for="(row, rowIndex) in visibleRows"
+  tbody.grid-table__body
+    tr.grid-table__row(
+      v-for="(row, rowIndex) in displayData"
       :key="rowIndex"
-      :style="getRowStyle(rowIndex)"
+      :style="{ height: `${defaultRowHeight}px` }"
     )
-      div.grid-table__cell(
+      td.grid-table__cell {{ rowIndex + 1 }}
+      td.grid-table__cell(
         v-for="(cell, colIndex) in row"
         :key="colIndex"
-        :class="getCellClass(rowIndex, colIndex)"
-        :style="getCellStyle(rowIndex, colIndex)"
-        @click="handleCellClick(rowIndex, colIndex)"
-        @dblclick="handleCellDoubleClick(rowIndex, colIndex)"
-      )
-        input.grid-table__cell-input(
-          v-if="isEditingCell(rowIndex, colIndex)"
-          v-model="editValue"
-          @blur="handleEditBlur"
-          @keydown="handleEditKeyDown"
-          ref="editInput"
-        )
-        template(v-else) {{ cell }}
+      ) {{ cell }}
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
-import type { GridConfig, CellPosition, SelectionRange } from '@/types/data-display-edit'
-import { useGridState } from '@/composables/useGridState'
-import { calculateViewportBounds, isCellVisible } from '@/utils/renderingUtils'
+import { computed } from 'vue'
 
 interface Props {
-  config: GridConfig
+  data: string[][]
+  defaultRowHeight?: number
+  defaultColWidth?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  config: () => ({
-    data: [['']],
-    cellWidth: 100,
-    cellHeight: 30,
-    enableEditing: true,
-    enableSelection: true,
-    enableKeyboardNavigation: true
-  })
+  data: () => [['']],
+  defaultRowHeight: 24,
+  defaultColWidth: 100
 })
 
-// Emits
-const emit = defineEmits<{
-  'cell-click': [position: CellPosition]
-  'cell-double-click': [position: CellPosition]
-  'selection-change': [selection: SelectionRange | null]
-  'data-change': [data: string[][]]
-}>()
+// 列数とヘッダーの計算
+const columnCount = computed(() => {
+  if (props.data.length === 0) return 1
+  return props.data[0].length
+})
 
-// Refs
-const gridContainer = ref<HTMLElement>()
-const editInput = ref<HTMLInputElement>()
-
-// Grid state
-const {
-  state,
-  isEditing,
-  hasSelection,
-  selectedCellsCount,
-  updateData,
-  setSelection,
-  startEditing,
-  stopEditing,
-  updateEditValue,
-  setCellValue,
-  getCellValue,
-  clearSelection
-} = useGridState(props.config.data)
-
-// Computed properties
 const columnHeaders = computed(() => {
-  return Array.from({ length: state.dimensions.cols }, (_, i) => String(i + 1))
+  const headers: string[] = []
+  for (let i = 0; i < columnCount.value; i++) {
+    // A, B, C, D, E... の形式でヘッダーを生成
+    let result = ''
+    let num = i
+    while (num >= 0) {
+      result = String.fromCharCode(65 + (num % 26)) + result
+      num = Math.floor(num / 26) - 1
+    }
+    headers.push(result)
+  }
+  return headers
 })
 
-const visibleRows = computed(() => {
-  // For now, show all rows. Virtualization will be implemented later
-  return state.data
-})
-
-const editValue = computed({
-  get: () => state.editValue,
-  set: (value: string) => updateEditValue(value)
-})
-
-// Methods
-const getHeaderCellStyle = (colIndex: number) => {
-  return {
-    width: `${props.config.cellWidth}px`,
-    height: `${props.config.cellHeight}px`
+// 表示用データ（空の場合は空の行を1つ表示）
+const displayData = computed(() => {
+  if (props.data.length === 0) {
+    return [Array(columnCount.value).fill('')]
   }
-}
-
-const getRowStyle = (rowIndex: number) => {
-  return {
-    height: `${props.config.cellHeight}px`
-  }
-}
-
-const getCellStyle = (rowIndex: number, colIndex: number) => {
-  return {
-    width: `${props.config.cellWidth}px`,
-    height: `${props.config.cellHeight}px`
-  }
-}
-
-const getCellClass = (rowIndex: number, colIndex: number) => {
-  const classes = []
-  
-  if (isEditingCell(rowIndex, colIndex)) {
-    classes.push('grid-table__cell--editing')
-  }
-  
-  if (isSelectedCell(rowIndex, colIndex)) {
-    classes.push('grid-table__cell--selected')
-  }
-  
-  return classes
-}
-
-const isEditingCell = (rowIndex: number, colIndex: number): boolean => {
-  return state.editingCell?.row === rowIndex && state.editingCell?.col === colIndex
-}
-
-const isSelectedCell = (rowIndex: number, colIndex: number): boolean => {
-  if (!state.selection) return false
-  
-  const position: CellPosition = { row: rowIndex, col: colIndex }
-  return isPositionInSelection(position, state.selection)
-}
-
-const isPositionInSelection = (position: CellPosition, selection: SelectionRange): boolean => {
-  return (
-    position.row >= selection.start.row &&
-    position.row <= selection.end.row &&
-    position.col >= selection.start.col &&
-    position.col <= selection.end.col
-  )
-}
-
-// Event handlers
-const handleCellClick = (rowIndex: number, colIndex: number) => {
-  const position: CellPosition = { row: rowIndex, col: colIndex }
-  
-  if (props.config.enableSelection) {
-    setSelection({
-      start: position,
-      end: position
-    })
-    emit('selection-change', state.selection)
-  }
-  
-  emit('cell-click', position)
-}
-
-const handleCellDoubleClick = (rowIndex: number, colIndex: number) => {
-  const position: CellPosition = { row: rowIndex, col: colIndex }
-  
-  if (props.config.enableEditing) {
-    const currentValue = getCellValue(position)
-    startEditing(position, currentValue)
-  }
-  
-  emit('cell-double-click', position)
-}
-
-const handleEditBlur = () => {
-  if (state.editingCell) {
-    setCellValue(state.editingCell, state.editValue)
-    stopEditing()
-    emit('data-change', state.data.map(row => [...row]))
-  }
-}
-
-const handleEditKeyDown = (event: KeyboardEvent) => {
-  if (event.key === 'Enter') {
-    handleEditBlur()
-  } else if (event.key === 'Escape') {
-    stopEditing()
-  }
-}
-
-const handleScroll = (event: Event) => {
-  // Scroll handling will be implemented for virtualization
-}
-
-const handleMouseDown = (event: MouseEvent) => {
-  // Mouse selection handling will be implemented
-}
-
-const handleMouseMove = (event: MouseEvent) => {
-  // Mouse selection handling will be implemented
-}
-
-const handleMouseUp = (event: MouseEvent) => {
-  // Mouse selection handling will be implemented
-}
-
-const handleKeyDown = (event: KeyboardEvent) => {
-  // Keyboard navigation will be implemented
-}
-
-// Lifecycle
-onMounted(() => {
-  // Focus management will be implemented
+  return props.data
 })
 </script>
 
 <style lang="sass" scoped>
-@import '@/styles/index.sass'
+.grid-table
+  background-color: #ffffff
+  border-left: 1px solid #d1d5db
+  border-top: 1px solid #d1d5db
+  border-collapse: separate
+  border-spacing: 0
+  font-family: 'SourceHanCode', 'Consolas', 'Monaco', 'Courier New', monospace
+  position: relative
+  table-layout: fixed
+  width: fit-content
+
+.grid-table__header
+  background-color: #f8f9fa
+  position: sticky
+  top: 0
+  z-index: 10
+
+.grid-table__header-cell
+  background-color: #f8f9fa
+  border-right: 1px solid #d1d5db
+  border-bottom: 1px solid #d1d5db
+  box-sizing: border-box
+  color: #374151
+  font-size: 16px
+  font-weight: 600
+  line-height: 1.2
+  margin: 0
+  padding: 2px 4px
+  text-align: center
+  vertical-align: middle
+  user-select: none
+
+.grid-table__header-cell:first-child
+  border-left: none
+
+.grid-table__header .grid-table__header-cell
+  border-top: none
+
+
+
+.grid-table__body
+  background-color: #ffffff
+  position: relative
+
+
+.grid-table__row:hover
+  background-color: #f8f9fa
+
+.grid-table__cell
+  background-color: #ffffff
+  border-right: 1px solid #d1d5db
+  border-bottom: 1px solid #d1d5db
+  box-sizing: border-box
+  color: #374151
+  font-size: 16px
+  line-height: 1.2
+  margin: 0
+  overflow: hidden
+  padding: 0 4px
+  position: relative
+  text-overflow: ellipsis
+  transition: background-color 0.1s ease-in-out
+  vertical-align: middle
+  white-space: nowrap
+
+.grid-table__cell:first-child
+  border-left: none
+
+.grid-table__row:first-child .grid-table__cell
+  border-top: none
+
+
+.grid-table__cell:hover
+  background-color: #f8f9fa
+
 </style>

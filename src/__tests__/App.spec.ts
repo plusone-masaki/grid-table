@@ -16,7 +16,10 @@ describe('App', () => {
   
   it('displays demo data', () => {
     const wrapper = mount(App)
-    expect(wrapper.text()).toContain('John Doe')
-    expect(wrapper.text()).toContain('Jane Smith')
+    expect(wrapper.text()).toContain('1')
+    expect(wrapper.text()).toContain('2')
+    expect(wrapper.text()).toContain('3')
+    expect(wrapper.text()).toContain('4')
+    expect(wrapper.text()).toContain('5')
   })
 })

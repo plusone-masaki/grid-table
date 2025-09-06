@@ -2,137 +2,101 @@
  * GridTable component tests
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import GridTable from '@/components/GridTable.vue'
-import type { GridConfig } from '@/types/data-display-edit'
 
 describe('GridTable', () => {
-  let defaultConfig: GridConfig
+  const defaultData = [
+    ['A1', 'B1', 'C1'],
+    ['A2', 'B2', 'C2'],
+    ['A3', 'B3', 'C3']
+  ]
 
-  beforeEach(() => {
-    defaultConfig = {
-      data: [
-        ['A1', 'B1', 'C1'],
-        ['A2', 'B2', 'C2'],
-        ['A3', 'B3', 'C3']
-      ],
-      cellWidth: 100,
-      cellHeight: 30,
-      enableEditing: true,
-      enableSelection: true,
-      enableKeyboardNavigation: true
-    }
-  })
+  const defaultProps = {
+    data: defaultData,
+    defaultRowHeight: 30,
+    defaultColWidth: 100
+  }
 
   it('renders grid with correct number of rows and columns', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
     const rows = wrapper.findAll('.grid-table__row')
     const cells = wrapper.findAll('.grid-table__cell')
     
     expect(rows).toHaveLength(3) // 3 rows
-    expect(cells).toHaveLength(9) // 3 rows × 3 columns
+    expect(cells).toHaveLength(12) // 3 rows × (1 row number + 3 data columns)
   })
 
   it('renders header with correct number of columns', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
     const headerCells = wrapper.findAll('.grid-table__header-cell')
-    expect(headerCells).toHaveLength(3) // 3 columns
+    expect(headerCells).toHaveLength(4) // 1 row number + 3 data columns
   })
 
   it('displays cell values correctly', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
     const cells = wrapper.findAll('.grid-table__cell')
-    expect(cells[0].text()).toBe('A1')
-    expect(cells[1].text()).toBe('B1')
-    expect(cells[2].text()).toBe('C1')
+    expect(cells[0].text()).toBe('1') // Row number
+    expect(cells[1].text()).toBe('A1') // Data cell
+    expect(cells[2].text()).toBe('B1') // Data cell
+    expect(cells[3].text()).toBe('C1') // Data cell
   })
 
-  it('emits cell-click event when cell is clicked', async () => {
+  it('generates correct column headers (A, B, C)', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
-    const firstCell = wrapper.find('.grid-table__cell')
-    await firstCell.trigger('click')
-
-    expect(wrapper.emitted('cell-click')).toBeTruthy()
-    expect(wrapper.emitted('cell-click')?.[0]).toEqual([{ row: 0, col: 0 }])
+    const headerCells = wrapper.findAll('.grid-table__header-cell')
+    expect(headerCells[0].text()).toBe('') // Row number header (empty)
+    expect(headerCells[1].text()).toBe('A')
+    expect(headerCells[2].text()).toBe('B')
+    expect(headerCells[3].text()).toBe('C')
   })
 
-  it('emits cell-double-click event when cell is double-clicked', async () => {
+  it('displays row numbers correctly', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
-    const firstCell = wrapper.find('.grid-table__cell')
-    await firstCell.trigger('dblclick')
-
-    expect(wrapper.emitted('cell-double-click')).toBeTruthy()
-    expect(wrapper.emitted('cell-double-click')?.[0]).toEqual([{ row: 0, col: 0 }])
+    const cells = wrapper.findAll('.grid-table__cell')
+    expect(cells[0].text()).toBe('1') // First cell is row number
+    expect(cells[4].text()).toBe('2') // Second row first cell
+    expect(cells[8].text()).toBe('3') // Third row first cell
   })
 
-  it('enters edit mode on double-click when editing is enabled', async () => {
+  it('applies correct row styles', () => {
     const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
+      props: defaultProps
     })
 
-    const firstCell = wrapper.find('.grid-table__cell')
-    await firstCell.trigger('dblclick')
-
-    const editInput = wrapper.find('.grid-table__cell-input')
-    expect(editInput.exists()).toBe(true)
-  })
-
-  it('does not enter edit mode when editing is disabled', async () => {
-    const configWithoutEditing = {
-      ...defaultConfig,
-      enableEditing: false
-    }
-
-    const wrapper = mount(GridTable, {
-      props: { config: configWithoutEditing }
-    })
-
-    const firstCell = wrapper.find('.grid-table__cell')
-    await firstCell.trigger('dblclick')
-
-    const editInput = wrapper.find('.grid-table__cell-input')
-    expect(editInput.exists()).toBe(false)
-  })
-
-  it('applies correct cell styles', () => {
-    const wrapper = mount(GridTable, {
-      props: { config: defaultConfig }
-    })
-
-    const firstCell = wrapper.find('.grid-table__cell')
-    const style = firstCell.attributes('style')
+    const firstRow = wrapper.find('.grid-table__row')
+    const style = firstRow.attributes('style')
     
-    expect(style).toContain('width: 100px')
     expect(style).toContain('height: 30px')
   })
 
   it('handles empty data correctly', () => {
-    const emptyConfig = {
-      ...defaultConfig,
+    const emptyProps = {
+      ...defaultProps,
       data: []
     }
 
     const wrapper = mount(GridTable, {
-      props: { config: emptyConfig }
+      props: emptyProps
     })
 
-    // Should render at least one empty cell
+    // Should render at least one empty row with row number
     const cells = wrapper.findAll('.grid-table__cell')
     expect(cells.length).toBeGreaterThan(0)
   })

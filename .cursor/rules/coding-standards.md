@@ -41,11 +41,47 @@
 - **Use arrow functions ONLY** - never use `function` keyword
 - Use `const` for function declarations: `const myFunction = () => {}`
 
+## Event Naming Rules
+- **Use "action:element" format** for all emit events
+- Examples: `click:cell`, `change:data`, `update:selection`
+- Use kebab-case for action names: `double-click:cell`
+- Use kebab-case for element names: `change:grid-state`
+
+## Vue Template Property Order
+When writing Vue template properties, follow this strict order:
+
+1. **v- directives (highest priority)**
+   - `v-if`, `v-show`, `v-for`, `v-model` in that order
+2. **: prefixed properties (bindings)**
+   - `:class`, `:style`, `:key`, etc.
+3. **Regular properties (no prefix)**
+   - `class`, `id`, `type`, `name`, etc.
+4. **Boolean properties**
+   - `disabled`, `readonly`, `required`, etc.
+5. **@ prefixed events (lowest priority)**
+   - `@click`, `@change`, `@input`, etc.
+
+### Example:
+```pug
+input(
+  v-if="isVisible"
+  v-model="inputValue"
+  :class="inputClass"
+  :style="inputStyle"
+  type="text"
+  placeholder="Enter text"
+  disabled
+  @input="handleInput"
+  @blur="handleBlur"
+)
+```
+
 ## Sass Rules
 - NO nesting - use flat structure
 - Use BEM methodology for class names
 - Define variables for colors, sizes, breakpoints
 - Desktop-first responsive design
+- **Properties must be in alphabetical order**
 
 ## Code Quality
 - Write meaningful comments

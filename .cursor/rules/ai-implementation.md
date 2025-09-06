@@ -22,12 +22,20 @@
 - Write comprehensive unit tests
 - Ensure zero linter/type errors
 
+## Specification Compliance
+- **ALWAYS follow specifications exactly** - Never deviate from written specifications
+- **Read specifications first** - Always check `specs/design/functions/` before implementing
+- **Use specified technologies** - If spec says "HTML table", use `<table>`, not `<div>`
+- **Follow naming conventions** - Use exact names and formats specified in docs
+- **Implement all requirements** - Every requirement must be implemented as written
+
 ## Prohibited Actions
 - Starting without reading specifications
 - Implementing multiple features simultaneously
 - Proceeding with any errors present
 - Skipping unit tests
 - Deviating from specifications
+- Using different technologies than specified
 
 ## Success Criteria
 - All specifications implemented correctly
