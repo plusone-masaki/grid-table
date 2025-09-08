@@ -2,11 +2,10 @@
 table.grid-table(
   ref="gridContainer"
   tabindex="0"
+  @keydown="handleKeyDown"
 )
   colgroup
-    col.grid-table__row-number-col(
-      :style="{ width: '40px' }"
-    )
+    col.grid-table__row-number-col
     col(
       v-for="(_, colIndex) in columnCount"
       :key="colIndex"
@@ -30,12 +29,25 @@ table.grid-table(
       td.grid-table__cell(
         v-for="(cell, colIndex) in row"
         :key="colIndex"
-      ) {{ cell }}
+        :class="{ 'grid-table__cell--editing': isCellEditing({ row: rowIndex, col: colIndex }) }"
+        @dblclick="handleCellDoubleClick(rowIndex, colIndex)"
+      )
+        input.grid-table__cell-input(
+          v-if="isCellEditing({ row: rowIndex, col: colIndex })"
+          v-model="editingValue"
+          @blur="finishEditing()"
+          @keydown.enter="finishEditing()"
+          @keydown.escape="cancelEditing()"
+          ref="editingInput"
+        )
+        span(v-else) {{ cell }}
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, nextTick, watch } from 'vue'
 import type { HeaderMode } from '@/types/header-modes'
+import { useDataDisplay } from '@/composables/useDataDisplay'
+import { useCellEditing } from '@/composables/useCellEditing'
 
 interface Props {
   data: string[][]
@@ -51,57 +63,61 @@ const props = withDefaults(defineProps<Props>(), {
   headerMode: 'alphabetic'
 })
 
-// 列数とヘッダーの計算
-const columnCount = computed(() => {
-  if (props.data.length === 0) return 1
-  return props.data[0].length
+// データをリアクティブにする
+const data = ref(props.data)
+
+// データ表示機能
+const {
+  columnCount,
+  columnHeaders,
+  displayData
+} = useDataDisplay({
+  data,
+  headerMode: props.headerMode
 })
 
-const columnHeaders = computed(() => {
-  const count = columnCount.value
-  
-  switch (props.headerMode) {
-    case 'numeric':
-      // 数値ヘッダー: 1, 2, 3...
-      return Array.from({ length: count }, (_, index) => String(index + 1))
-    
-    case 'array':
-      // 配列ヘッダー: データ配列の先頭行を使用
-      if (props.data.length > 0) {
-        return props.data[0].slice(0, count)
-      }
-      return Array.from({ length: count }, (_, index) => `Column ${index + 1}`)
-    
-    case 'alphabetic':
-    default:
-      // 英字ヘッダー: A, B, C... (26列を超える場合はAA, AB...)
-      const headers: string[] = []
-      for (let i = 0; i < count; i++) {
-        let result = ''
-        let num = i
-        while (num >= 0) {
-          result = String.fromCharCode(65 + (num % 26)) + result
-          num = Math.floor(num / 26) - 1
-        }
-        headers.push(result)
-      }
-      return headers
+// セル編集機能
+const {
+  isEditing,
+  editingPosition,
+  editingValue,
+  startEditing,
+  finishEditing,
+  cancelEditing,
+  isCellEditing
+} = useCellEditing({
+  data
+})
+
+// セルダブルクリックハンドラー
+const handleCellDoubleClick = (row: number, col: number) => {
+  startEditing({ row, col })
+}
+
+// 編集入力フィールドの参照
+const editingInput = ref<HTMLInputElement>()
+
+// 編集開始時にフォーカスを設定
+watch(isEditing, async (editing) => {
+  if (editing && editingInput.value) {
+    await nextTick()
+    editingInput.value.focus()
+    editingInput.value.select()
   }
 })
 
-// 表示用データ（空の場合は空の行を1つ表示）
-const displayData = computed(() => {
-  if (props.data.length === 0) {
-    return [Array(columnCount.value).fill('')]
+// キーボードイベントハンドラー
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (isEditing.value) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      finishEditing()
+    } else if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelEditing()
+    }
   }
-  
-  // headerModeが'array'の場合は先頭行を除いたデータを表示
-  if (props.headerMode === 'array' && props.data.length > 1) {
-    return props.data.slice(1)
-  }
-  
-  return props.data
-})
+}
 </script>
 
 <style lang="sass" scoped>
@@ -143,7 +159,9 @@ const displayData = computed(() => {
 .grid-table__header .grid-table__header-cell
   border-top: none
 
-
+.grid-table__row-number-col
+  width: auto
+  min-width: 2em
 
 .grid-table__body
   background-color: #ffffff
@@ -167,12 +185,14 @@ const displayData = computed(() => {
   position: relative
   text-overflow: ellipsis
   transition: background-color 0.1s ease-in-out
+  user-select: none
   vertical-align: middle
   white-space: nowrap
 
 .grid-table__cell:first-child
   background-color: #f8f9fa
   border-left: none
+  text-align: right
 
 .grid-table__row:first-child .grid-table__cell
   border-top: none
@@ -181,4 +201,21 @@ const displayData = computed(() => {
 .grid-table__cell:hover
   background-color: #f8f9fa
 
+.grid-table__cell--editing
+  background-color: #ffffff !important
+  border-color: #3b82f6 !important
+  box-shadow: 0 0 0 2px #3b82f6
+
+.grid-table__cell-input
+  background-color: transparent
+  border: none
+  color: #374151
+  font-family: inherit
+  font-size: inherit
+  line-height: inherit
+  margin: 0
+  outline: none
+  padding: 0
+  user-select: text
+  width: 100%
 </style>
