@@ -5,31 +5,48 @@ div.app
   
   div.demo-section
     h2 Demo
+    div.header-mode-controls
+      h3 Header Mode
+      div.button-group
+        button(
+          v-for="mode in headerModes"
+          :key="mode.value"
+          :class="{ active: currentHeaderMode === mode.value }"
+          @click="currentHeaderMode = mode.value"
+        ) {{ mode.label }}
+    
     div.grid-table-container
       GridTable(
         :data="gridData"
         :default-row-height="24"
         :default-col-width="100"
+        :header-mode="currentHeaderMode"
       )
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import GridTable from '@/components/GridTable.vue'
+import type { HeaderMode } from '@/types/header-modes'
 
 // Demo data (Excel-like)
 const gridData = ref<string[][]>([
-  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-  ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
-  ['21', '22', '23', '24', '25', '26', '27', '28', '29', '30'],
-  ['31', '32', '33', '34', '35', '36', '37', '38', '39', '40'],
-  ['41', '42', '43', '44', '45', '46', '47', '48', '49', '50'],
-  ['51', '52', '53', '54', '55', '56', '57', '58', '59', '60'],
-  ['61', '62', '63', '64', '65', '66', '67', '68', '69', '70'],
-  ['71', '72', '73', '74', '75', '76', '77', '78', '79', '80'],
-  ['81', '82', '83', '84', '85', '86', '87', '88', '89', '90'],
-  ['91', '92', '93', '94', '95', '96', '97', '98', '99', '100']
+  ['Name', 'Age', 'City', 'Country', 'Email'],
+  ['John Doe', '30', 'Tokyo', 'Japan', 'john@example.com'],
+  ['Jane Smith', '25', 'New York', 'USA', 'jane@example.com'],
+  ['Bob Johnson', '35', 'London', 'UK', 'bob@example.com'],
+  ['Alice Brown', '28', 'Paris', 'France', 'alice@example.com'],
+  ['Charlie Wilson', '32', 'Sydney', 'Australia', 'charlie@example.com']
 ])
+
+// ヘッダーモードの設定
+const headerModes = [
+  { value: 'alphabetic' as HeaderMode, label: 'Alphabetic (A, B, C...)' },
+  { value: 'numeric' as HeaderMode, label: 'Numeric (1, 2, 3...)' },
+  { value: 'array' as HeaderMode, label: 'Array (Data Headers)' }
+]
+
+const currentHeaderMode = ref<HeaderMode>('alphabetic')
 </script>
 
 <style lang="sass" scoped>
@@ -57,6 +74,41 @@ const gridData = ref<string[][]>([
     color: #0078d4
     font-size: 18px
   
+  .header-mode-controls
+    margin-bottom: 20px
+    
+    h3
+      margin-bottom: 10px
+      color: #323130
+      font-size: 16px
+    
+    .button-group
+      display: flex
+      gap: 8px
+      flex-wrap: wrap
+      
+      button
+        padding: 8px 16px
+        border: 1px solid #d1d5db
+        border-radius: 4px
+        background-color: #ffffff
+        color: #374151
+        font-size: 14px
+        cursor: pointer
+        transition: all 0.2s ease
+        
+        &:hover
+          background-color: #f3f4f6
+          border-color: #9ca3af
+        
+        &.active
+          background-color: #0078d4
+          color: #ffffff
+          border-color: #0078d4
+          
+          &:hover
+            background-color: #106ebe
+
   .grid-table-container
     display: inline-block
     border: 1px solid #e5e7eb

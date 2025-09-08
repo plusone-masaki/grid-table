@@ -35,17 +35,20 @@ table.grid-table(
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { HeaderMode } from '@/types/header-modes'
 
 interface Props {
   data: string[][]
   defaultRowHeight?: number
   defaultColWidth?: number
+  headerMode?: HeaderMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
   data: () => [['']],
   defaultRowHeight: 24,
-  defaultColWidth: 100
+  defaultColWidth: 100,
+  headerMode: 'alphabetic'
 })
 
 // 列数とヘッダーの計算
@@ -55,18 +58,35 @@ const columnCount = computed(() => {
 })
 
 const columnHeaders = computed(() => {
-  const headers: string[] = []
-  for (let i = 0; i < columnCount.value; i++) {
-    // A, B, C, D, E... の形式でヘッダーを生成
-    let result = ''
-    let num = i
-    while (num >= 0) {
-      result = String.fromCharCode(65 + (num % 26)) + result
-      num = Math.floor(num / 26) - 1
-    }
-    headers.push(result)
+  const count = columnCount.value
+  
+  switch (props.headerMode) {
+    case 'numeric':
+      // 数値ヘッダー: 1, 2, 3...
+      return Array.from({ length: count }, (_, index) => String(index + 1))
+    
+    case 'array':
+      // 配列ヘッダー: データ配列の先頭行を使用
+      if (props.data.length > 0) {
+        return props.data[0].slice(0, count)
+      }
+      return Array.from({ length: count }, (_, index) => `Column ${index + 1}`)
+    
+    case 'alphabetic':
+    default:
+      // 英字ヘッダー: A, B, C... (26列を超える場合はAA, AB...)
+      const headers: string[] = []
+      for (let i = 0; i < count; i++) {
+        let result = ''
+        let num = i
+        while (num >= 0) {
+          result = String.fromCharCode(65 + (num % 26)) + result
+          num = Math.floor(num / 26) - 1
+        }
+        headers.push(result)
+      }
+      return headers
   }
-  return headers
 })
 
 // 表示用データ（空の場合は空の行を1つ表示）
@@ -74,6 +94,12 @@ const displayData = computed(() => {
   if (props.data.length === 0) {
     return [Array(columnCount.value).fill('')]
   }
+  
+  // headerModeが'array'の場合は先頭行を除いたデータを表示
+  if (props.headerMode === 'array' && props.data.length > 1) {
+    return props.data.slice(1)
+  }
+  
   return props.data
 })
 </script>

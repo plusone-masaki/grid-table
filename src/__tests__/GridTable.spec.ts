@@ -52,7 +52,7 @@ describe('GridTable', () => {
     expect(cells[3].text()).toBe('C1') // Data cell
   })
 
-  it('generates correct column headers (A, B, C)', () => {
+  it('generates correct column headers (A, B, C) by default', () => {
     const wrapper = mount(GridTable, {
       props: defaultProps
     })
@@ -62,6 +62,72 @@ describe('GridTable', () => {
     expect(headerCells[1].text()).toBe('A')
     expect(headerCells[2].text()).toBe('B')
     expect(headerCells[3].text()).toBe('C')
+  })
+
+  it('generates numeric headers when headerMode is numeric', () => {
+    const wrapper = mount(GridTable, {
+      props: {
+        ...defaultProps,
+        headerMode: 'numeric'
+      }
+    })
+
+    const headerCells = wrapper.findAll('.grid-table__header-cell')
+    expect(headerCells[1].text()).toBe('1')
+    expect(headerCells[2].text()).toBe('2')
+    expect(headerCells[3].text()).toBe('3')
+  })
+
+  it('generates array headers when headerMode is array', () => {
+    const testData = [
+      ['Name', 'Age', 'City'],
+      ['John', '30', 'Tokyo'],
+      ['Jane', '25', 'New York']
+    ]
+    
+    const wrapper = mount(GridTable, {
+      props: {
+        data: testData,
+        headerMode: 'array'
+      }
+    })
+
+    const headerCells = wrapper.findAll('.grid-table__header-cell')
+    expect(headerCells[1].text()).toBe('Name')
+    expect(headerCells[2].text()).toBe('Age')
+    expect(headerCells[3].text()).toBe('City')
+    
+    // データ行は先頭行を除いたものになる
+    const dataCells = wrapper.findAll('.grid-table__cell')
+    expect(dataCells[0].text()).toBe('1') // Row number
+    expect(dataCells[1].text()).toBe('John') // First data row
+    expect(dataCells[2].text()).toBe('30')
+    expect(dataCells[3].text()).toBe('Tokyo')
+  })
+
+  it('handles array mode with single row data', () => {
+    const singleRowData = [
+      ['Header1', 'Header2', 'Header3']
+    ]
+    
+    const wrapper = mount(GridTable, {
+      props: {
+        data: singleRowData,
+        headerMode: 'array'
+      }
+    })
+
+    const headerCells = wrapper.findAll('.grid-table__header-cell')
+    expect(headerCells[1].text()).toBe('Header1')
+    expect(headerCells[2].text()).toBe('Header2')
+    expect(headerCells[3].text()).toBe('Header3')
+    
+    // データ行は空の行が1つ表示される
+    const dataCells = wrapper.findAll('.grid-table__cell')
+    expect(dataCells[0].text()).toBe('1') // Row number
+    expect(dataCells[1].text()).toBe('') // Empty data cell
+    expect(dataCells[2].text()).toBe('')
+    expect(dataCells[3].text()).toBe('')
   })
 
   it('displays row numbers correctly', () => {
