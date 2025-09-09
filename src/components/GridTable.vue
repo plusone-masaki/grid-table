@@ -1,53 +1,54 @@
 <template lang="pug">
-table.grid-table(
-  ref="gridContainer"
-  tabindex="0"
-  @keydown="handleKeyDown"
-)
-  colgroup
-    col.grid-table__row-number-col
-    col(
-      v-for="(_, colIndex) in columnCount"
-      :key="colIndex"
-      :style="{ width: `${defaultColWidth}px` }"
-    )
-  thead.grid-table__header
-    tr.grid-table__header-row
-      th.grid-table__header-cell
-      th.grid-table__header-cell(
-        v-for="(header, colIndex) in columnHeaders"
+div.grid-table-wrapper(relative)
+  table.grid-table(
+    ref="gridContainer"
+    tabindex="0"
+  )
+    colgroup
+      col.grid-table__row-number-col
+      col(
+        v-for="(_, colIndex) in columnCount"
         :key="colIndex"
-      ) {{ header }}
-  
-  tbody.grid-table__body
-    tr.grid-table__row(
-      v-for="(row, rowIndex) in displayData"
-      :key="rowIndex"
-      :style="{ height: `${defaultRowHeight}px` }"
-    )
-      td.grid-table__cell {{ rowIndex + 1 }}
-      td.grid-table__cell(
-        v-for="(cell, colIndex) in row"
-        :key="colIndex"
-        :class="{ 'grid-table__cell--editing': isCellEditing({ row: rowIndex, col: colIndex }) }"
-        @dblclick="handleCellDoubleClick(rowIndex, colIndex)"
+        :style="{ width: `${defaultColWidth}px` }"
       )
-        input.grid-table__cell-input(
-          v-if="isCellEditing({ row: rowIndex, col: colIndex })"
-          v-model="editingValue"
-          @blur="finishEditing()"
-          @keydown.enter="finishEditing()"
-          @keydown.escape="cancelEditing()"
-          ref="editingInput"
-        )
-        span(v-else) {{ cell }}
+    thead.grid-table__header
+      tr.grid-table__header-row
+        th.grid-table__header-cell
+        th.grid-table__header-cell(
+          v-for="(header, colIndex) in columnHeaders"
+          :key="colIndex"
+        ) {{ header }}
+    
+    tbody.grid-table__body
+      tr.grid-table__row(
+        v-for="(row, rowIndex) in displayData"
+        :key="rowIndex"
+        :style="{ height: `${defaultRowHeight}px` }"
+      )
+        td.grid-table__cell {{ rowIndex + 1 }}
+        td.grid-table__cell(
+          v-for="(cell, colIndex) in row"
+          :key="colIndex"
+        ) {{ cell }}
+  
+  CellSelection(
+    :visible="isVisible"
+    :editing="isEditing"
+    :editing-value="editingValue"
+    :position="selectionPosition"
+    @update:editing-value="editingValue = $event"
+    @finish-editing="finishEditing"
+    @cancel-editing="cancelEditing"
+  )
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { HeaderMode } from '@/types/header-modes'
 import { useDataDisplay } from '@/composables/useDataDisplay'
-import { useCellEditing } from '@/composables/useCellEditing'
+import { useCellSelection } from '@/composables/useCellSelection'
+import { useGridEvents } from '@/composables/useGridEvents'
+import CellSelection from './CellSelection.vue'
 
 interface Props {
   data: string[][]
@@ -76,51 +77,43 @@ const {
   headerMode: props.headerMode
 })
 
-// セル編集機能
+// 行数計算
+const rowCount = computed(() => displayData.value.length)
+
+// テーブル要素の参照
+const gridContainer = ref<HTMLTableElement>()
+
+// 統一イベントシステム
+const eventSystem = useGridEvents(gridContainer)
+
+// セル選択・編集機能（統合）
 const {
+  selectedCell,
+  isVisible,
   isEditing,
-  editingPosition,
   editingValue,
+  selectionPosition,
+  hasSelection,
+  selectCell,
+  clearSelection,
+  isCellSelected,
   startEditing,
   finishEditing,
-  cancelEditing,
-  isCellEditing
-} = useCellEditing({
+  cancelEditing
+} = useCellSelection({
+  columnCount,
+  rowCount,
+  gridContainer,
+  eventSystem,
   data
 })
 
-// セルダブルクリックハンドラー
-const handleCellDoubleClick = (row: number, col: number) => {
-  startEditing({ row, col })
-}
-
-// 編集入力フィールドの参照
-const editingInput = ref<HTMLInputElement>()
-
-// 編集開始時にフォーカスを設定
-watch(isEditing, async (editing) => {
-  if (editing && editingInput.value) {
-    await nextTick()
-    editingInput.value.focus()
-    editingInput.value.select()
-  }
-})
-
-// キーボードイベントハンドラー
-const handleKeyDown = (event: KeyboardEvent) => {
-  if (isEditing.value) {
-    if (event.key === 'Enter') {
-      event.preventDefault()
-      finishEditing()
-    } else if (event.key === 'Escape') {
-      event.preventDefault()
-      cancelEditing()
-    }
-  }
-}
 </script>
 
 <style lang="sass" scoped>
+.grid-table-wrapper
+  position: relative
+
 .grid-table
   background-color: #ffffff
   border-left: 1px solid #d1d5db
@@ -200,22 +193,4 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 .grid-table__cell:hover
   background-color: #f8f9fa
-
-.grid-table__cell--editing
-  background-color: #ffffff !important
-  border-color: #3b82f6 !important
-  box-shadow: 0 0 0 2px #3b82f6
-
-.grid-table__cell-input
-  background-color: transparent
-  border: none
-  color: #374151
-  font-family: inherit
-  font-size: inherit
-  line-height: inherit
-  margin: 0
-  outline: none
-  padding: 0
-  user-select: text
-  width: 100%
 </style>
