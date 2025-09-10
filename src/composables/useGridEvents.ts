@@ -8,7 +8,6 @@ export interface CellPosition {
 export interface GridEventHandlers {
   onCellClick?: (position: CellPosition, event: MouseEvent) => void
   onCellDoubleClick?: (position: CellPosition, event: MouseEvent) => void
-  onKeyDown?: (event: KeyboardEvent) => void
 }
 
 export interface GridEventSystem {
@@ -58,19 +57,12 @@ export function useGridEvents(gridContainer: Ref<HTMLTableElement | undefined>):
     })
   }
 
-  const handleKeyDown = (event: KeyboardEvent) => {
-    registeredHandlers.forEach(handler => {
-      handler.onKeyDown?.(event)
-    })
-  }
-
   // イベントリスナーの登録・解除
   onMounted(() => {
     if (!gridContainer.value) return
     
     gridContainer.value.addEventListener('click', handleClick)
     gridContainer.value.addEventListener('dblclick', handleDoubleClick)
-    gridContainer.value.addEventListener('keydown', handleKeyDown)
   })
 
   onUnmounted(() => {
@@ -78,7 +70,6 @@ export function useGridEvents(gridContainer: Ref<HTMLTableElement | undefined>):
     
     gridContainer.value.removeEventListener('click', handleClick)
     gridContainer.value.removeEventListener('dblclick', handleDoubleClick)
-    gridContainer.value.removeEventListener('keydown', handleKeyDown)
   })
 
   // ハンドラー登録

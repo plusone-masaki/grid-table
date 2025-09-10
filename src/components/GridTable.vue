@@ -2,7 +2,6 @@
 div.grid-table-wrapper(relative)
   table.grid-table(
     ref="gridContainer"
-    tabindex="0"
   )
     colgroup
       col.grid-table__row-number-col
@@ -23,7 +22,6 @@ div.grid-table-wrapper(relative)
       tr.grid-table__row(
         v-for="(row, rowIndex) in displayData"
         :key="rowIndex"
-        :style="{ height: `${defaultRowHeight}px` }"
       )
         td.grid-table__cell {{ rowIndex + 1 }}
         td.grid-table__cell(
@@ -31,14 +29,23 @@ div.grid-table-wrapper(relative)
           :key="colIndex"
         ) {{ cell }}
   
+  // 選択範囲表示（複数セル選択時）
   CellSelection(
-    :visible="isVisible"
-    :editing="isEditing"
+    :visible="!!selectedRange"
+    :is-single-cell="!!selectedRange && selectedRange.start.row === selectedRange.end.row && selectedRange.start.col === selectedRange.end.col"
+    :position="selectionRangePosition"
+  )
+  
+  // アクティブセル表示（編集対象セル）
+  ActiveCell(
+    :visible="!!activeCell"
+    :editing="mode === 'editing'"
     :editing-value="editingValue"
-    :position="selectionPosition"
+    :position="activeCellPosition"
     @update:editing-value="editingValue = $event"
     @finish-editing="finishEditing"
     @cancel-editing="cancelEditing"
+    @tab-move="handleTabMove"
   )
 </template>
 
@@ -49,17 +56,16 @@ import { useDataDisplay } from '@/composables/useDataDisplay'
 import { useCellSelection } from '@/composables/useCellSelection'
 import { useGridEvents } from '@/composables/useGridEvents'
 import CellSelection from './CellSelection.vue'
+import ActiveCell from './ActiveCell.vue'
 
 interface Props {
   data: string[][]
-  defaultRowHeight?: number
   defaultColWidth?: number
   headerMode?: HeaderMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
   data: () => [['']],
-  defaultRowHeight: 24,
   defaultColWidth: 100,
   headerMode: 'alphabetic'
 })
@@ -88,18 +94,15 @@ const eventSystem = useGridEvents(gridContainer)
 
 // セル選択・編集機能（統合）
 const {
-  selectedCell,
-  isVisible,
-  isEditing,
+  mode,
+  activeCell,
+  selectedRange,
   editingValue,
-  selectionPosition,
-  hasSelection,
-  selectCell,
-  clearSelection,
-  isCellSelected,
-  startEditing,
+  activeCellPosition,
+  selectionRangePosition,
   finishEditing,
-  cancelEditing
+  cancelEditing,
+  handleTabMove
 } = useCellSelection({
   columnCount,
   rowCount,
@@ -161,6 +164,9 @@ const {
   position: relative
 
 
+.grid-table__row
+  min-height: 24px
+
 .grid-table__row:hover
   background-color: #f8f9fa
 
@@ -173,14 +179,13 @@ const {
   font-size: 16px
   line-height: 1.2
   margin: 0
-  overflow: hidden
-  padding: 0 4px
+  padding: 2px 4px
   position: relative
-  text-overflow: ellipsis
   transition: background-color 0.1s ease-in-out
   user-select: none
-  vertical-align: middle
-  white-space: nowrap
+  vertical-align: top
+  white-space: pre-wrap
+  word-wrap: break-word
 
 .grid-table__cell:first-child
   background-color: #f8f9fa

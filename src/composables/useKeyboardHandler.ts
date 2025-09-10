@@ -1,0 +1,101 @@
+import { ref, computed, onMounted, onUnmounted, type Ref } from 'vue'
+import { DEFAULT_KEY_CONFIG, type KeyConfig, type KeyBinding, type KeyAction } from '@/types/key-config'
+
+export interface KeyboardHandlerOptions {
+  gridContainer: Ref<HTMLElement | undefined>
+  keyConfig?: KeyConfig
+}
+
+export interface KeyHandler {
+  (action: KeyAction, event: KeyboardEvent): void
+}
+
+export function useKeyboardHandler(options: KeyboardHandlerOptions) {
+  const { gridContainer, keyConfig = DEFAULT_KEY_CONFIG } = options
+  
+  // キーハンドラーの登録
+  const keyHandlers = ref<Map<KeyAction, KeyHandler>>(new Map())
+  
+  // キーバインディングが一致するかチェック
+  const matchesBinding = (event: KeyboardEvent, binding: KeyBinding): boolean => {
+    return (
+      event.key === binding.key &&
+      !!event.ctrlKey === !!binding.ctrlKey &&
+      !!event.shiftKey === !!binding.shiftKey &&
+      !!event.altKey === !!binding.altKey &&
+      !!event.metaKey === !!binding.metaKey
+    )
+  }
+  
+  // キーイベントを処理
+  const handleKeyDown = (event: KeyboardEvent) => {
+    // 編集中の要素（input, textarea）からのイベントは無視
+    const target = event.target as HTMLElement
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+      console.log('KeyboardHandler: ignoring event from', target.tagName)
+      return
+    }
+    
+    console.log('KeyboardHandler processing:', event.key, {
+      shiftKey: event.shiftKey,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      metaKey: event.metaKey,
+      target: target?.tagName
+    })
+    
+    // マッチするアクションを全て収集
+    const matchingActions: string[] = []
+    for (const [action, binding] of Object.entries(keyConfig)) {
+      if (matchesBinding(event, binding)) {
+        matchingActions.push(action)
+      }
+    }
+    
+    console.log('KeyboardHandler: matching actions:', matchingActions)
+    
+    // マッチしたアクションの中から最初に見つかったハンドラーを実行
+    for (const action of matchingActions) {
+      const handler = keyHandlers.value.get(action as KeyAction)
+      if (handler) {
+        console.log('KeyboardHandler: executing action', action)
+        event.preventDefault()
+        const result = handler(action as KeyAction, event)
+        console.log('KeyboardHandler: action executed, stopping')
+        return
+      }
+    }
+    
+    console.log('KeyboardHandler: no handler found for matching actions')
+  }
+  
+  // キーハンドラーを登録
+  const registerHandler = (action: KeyAction, handler: KeyHandler) => {
+    keyHandlers.value.set(action, handler)
+  }
+  
+  // キーハンドラーを削除
+  const unregisterHandler = (action: KeyAction) => {
+    keyHandlers.value.delete(action)
+  }
+  
+  // イベントリスナーの管理
+  onMounted(() => {
+    if (!gridContainer.value) return
+    gridContainer.value.addEventListener('keydown', handleKeyDown)
+    // フォーカス可能にする
+    gridContainer.value.setAttribute('tabindex', '0')
+  })
+  
+  onUnmounted(() => {
+    if (!gridContainer.value) return
+    gridContainer.value.removeEventListener('keydown', handleKeyDown)
+  })
+  
+  return {
+    registerHandler,
+    unregisterHandler,
+    keyConfig: computed(() => keyConfig)
+  }
+}
+
