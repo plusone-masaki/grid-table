@@ -31,26 +31,26 @@ div.grid-table-wrapper(relative)
   
   // 選択範囲表示（複数セル選択時）
   CellSelection(
-    :visible="!!selectedRange"
-    :is-single-cell="!!selectedRange && selectedRange.start.row === selectedRange.end.row && selectedRange.start.col === selectedRange.end.col"
+    v-if="selectedRange"
+    :range="selectedRange"
     :position="selectionRangePosition"
   )
   
   // アクティブセル表示（編集対象セル）
   ActiveCell(
-    :visible="!!activeCell"
+    v-if="activeCell"
     :editing="mode === 'editing'"
     :editing-value="editingValue"
     :position="activeCellPosition"
     @update:editing-value="editingValue = $event"
-    @finish-editing="finishEditing"
-    @cancel-editing="cancelEditing"
-    @tab-move="handleTabMove"
+    @edit:end="finishEditing"
+    @edit:cancel="cancelEditing"
+    @move:cell="handleMoveCell"
   )
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, toRef } from 'vue'
 import type { HeaderMode } from '@/types/header-modes'
 import { useDataDisplay } from '@/composables/useDataDisplay'
 import { useCellSelection } from '@/composables/useCellSelection'
@@ -59,29 +59,24 @@ import CellSelection from './CellSelection.vue'
 import ActiveCell from './ActiveCell.vue'
 
 interface Props {
-  data: string[][]
   defaultColWidth?: number
   headerMode?: HeaderMode
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  data: () => [['']],
   defaultColWidth: 100,
   headerMode: 'alphabetic'
 })
 
-// データをリアクティブにする
-const data = ref(props.data)
+// データを双方向バインディングで定義
+const data = defineModel<string[][]>('data', { default: () => [['']] })
 
 // データ表示機能
 const {
   columnCount,
   columnHeaders,
   displayData
-} = useDataDisplay({
-  data,
-  headerMode: props.headerMode
-})
+} = useDataDisplay(data, toRef(props, 'headerMode'))
 
 // 行数計算
 const rowCount = computed(() => displayData.value.length)
@@ -102,7 +97,7 @@ const {
   selectionRangePosition,
   finishEditing,
   cancelEditing,
-  handleTabMove
+  handleMoveCell
 } = useCellSelection({
   columnCount,
   rowCount,
@@ -124,6 +119,7 @@ const {
   border-collapse: separate
   border-spacing: 0
   font-family: 'SourceHanCode', 'Consolas', 'Monaco', 'Courier New', monospace
+  outline: none
   position: relative
   table-layout: fixed
   width: fit-content

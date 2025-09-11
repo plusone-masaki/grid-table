@@ -1,6 +1,5 @@
 <template lang="pug">
 div.active-cell(
-  v-if="visible"
   :style="activeCellStyle"
 )
   textarea.active-cell__textarea(
@@ -16,7 +15,6 @@ div.active-cell(
 import { computed, ref, nextTick, watch } from 'vue'
 
 interface Props {
-  visible: boolean
   editing: boolean
   editingValue: string
   position: {
@@ -29,9 +27,9 @@ interface Props {
 
 interface Emits {
   (e: 'update:editingValue', value: string): void
-  (e: 'finishEditing'): void
-  (e: 'cancelEditing'): void
-  (e: 'tabMove', direction: 'next' | 'previous'): void
+  (e: 'edit:end'): void
+  (e: 'edit:cancel'): void
+  (e: 'move:cell', direction: 'next' | 'previous' | 'down' | 'up'): void
 }
 
 const props = defineProps<Props>()
@@ -48,54 +46,49 @@ const editingValue = computed({
 
 // 編集終了
 const finishEditing = () => {
-  emit('finishEditing')
+  emit('edit:end')
 }
 
 // 編集キャンセル
 const cancelEditing = () => {
-  emit('cancelEditing')
+  emit('edit:cancel')
 }
 
-// キー操作によって編集が終了したかどうかのフラグ
 const isKeyboardTriggeredExit = ref(false)
 
-// blurイベントハンドラー
 const handleBlur = () => {
-  console.log('ActiveCell blur event, keyboard triggered:', isKeyboardTriggeredExit.value)
-  // キーボード操作によって編集が終了した場合はblurイベントを無視
   if (isKeyboardTriggeredExit.value) {
     isKeyboardTriggeredExit.value = false
     return
   }
-  // 通常のblur（クリックなどによる）の場合は編集を確定
   finishEditing()
 }
 
-// キーイベントハンドラー
 const handleKeyDown = (event: KeyboardEvent) => {
-  console.log('ActiveCell keydown:', event.key, {
-    shiftKey: event.shiftKey,
-    ctrlKey: event.ctrlKey,
-    altKey: event.altKey,
-    metaKey: event.metaKey,
-    target: event.target,
-    currentTarget: event.currentTarget
-  })
-  
   // Enterキー：編集確定
-  if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
-    console.log('Enter pressed - finishing edit')
-    event.preventDefault()
-    event.stopPropagation()
-    event.stopImmediatePropagation()
-    isKeyboardTriggeredExit.value = true
-    finishEditing()
+  if (event.key === 'Enter' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.shiftKey) {
+      // Shift+Enter：上方向に移動
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      isKeyboardTriggeredExit.value = true
+      finishEditing()
+      emit('move:cell', 'up')
+    } else {
+      // Enter：下方向に移動
+      event.preventDefault()
+      event.stopPropagation()
+      event.stopImmediatePropagation()
+      isKeyboardTriggeredExit.value = true
+      finishEditing()
+      emit('move:cell', 'down')
+    }
     return
   }
   
   // Escapeキー：編集キャンセル
   if (event.key === 'Escape') {
-    console.log('Escape pressed - canceling edit')
     event.preventDefault()
     event.stopPropagation()
     event.stopImmediatePropagation()
@@ -106,29 +99,24 @@ const handleKeyDown = (event: KeyboardEvent) => {
   
   // Tabキー：編集確定して次のセルに移動
   if (event.key === 'Tab' && !event.ctrlKey && !event.altKey && !event.metaKey) {
-    console.log('Tab pressed - finishing edit and moving to next cell')
     event.preventDefault()
     event.stopPropagation()
     event.stopImmediatePropagation()
     isKeyboardTriggeredExit.value = true
     
     const direction = event.shiftKey ? 'previous' : 'next'
-    console.log('Tab direction:', direction)
     
     finishEditing()
-    // Tab移動を親コンポーネントに通知
-    emit('tabMove', direction)
+    emit('move:cell', direction)
     return
   }
   
   // Shift+Enter：改行を許可（デフォルト動作）
   if (event.key === 'Enter' && event.shiftKey) {
-    console.log('Shift+Enter pressed - allowing newline')
     // デフォルト動作を許可（改行）
     return
   }
   
-  console.log('ActiveCell: no action taken for key:', event.key)
 }
 
 // keyupハンドラーは削除（keydownで十分処理できているため）
@@ -136,7 +124,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
 // 編集開始時にフォーカス設定
 watch(() => props.editing, async (editing) => {
   if (editing) {
-    console.log('Edit mode started, focusing textarea')
     
     await nextTick()
     // わずかな遅延でDOM更新を確実に待つ
@@ -158,7 +145,7 @@ const activeCellStyle = computed(() => ({
   width: `${props.position.width}px`,
   height: `${props.position.height + 1}px`,
   pointerEvents: props.editing ? 'auto' : 'none',
-  zIndex: 2 // 選択範囲より上に表示
+  zIndex: 100 // 選択範囲より確実に上に表示
 }))
 </script>
 

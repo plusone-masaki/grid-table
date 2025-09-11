@@ -1,13 +1,7 @@
 import { computed, type Ref } from 'vue'
 import type { HeaderMode } from '@/types/header-modes'
 
-export interface DataDisplayOptions {
-  data: Ref<string[][]>
-  headerMode?: HeaderMode
-}
-
-export function useDataDisplay(options: DataDisplayOptions) {
-  const { data, headerMode = 'alphabetic' } = options
+export function useDataDisplay(data: Ref<string[][]>, headerMode: Ref<HeaderMode>) {
 
   // 列数とヘッダーの計算
   const columnCount = computed(() => {
@@ -18,7 +12,7 @@ export function useDataDisplay(options: DataDisplayOptions) {
   const columnHeaders = computed(() => {
     const count = columnCount.value
     
-    switch (headerMode) {
+    switch (headerMode.value) {
       case 'numeric':
         // 数値ヘッダー: 1, 2, 3...
         return Array.from({ length: count }, (_, index) => String(index + 1))
@@ -54,7 +48,7 @@ export function useDataDisplay(options: DataDisplayOptions) {
     }
     
     // headerModeが'array'の場合は先頭行を除いたデータを表示
-    if (headerMode === 'array' && data.value.length > 1) {
+    if (headerMode.value === 'array' && data.value.length > 1) {
       return data.value.slice(1)
     }
     

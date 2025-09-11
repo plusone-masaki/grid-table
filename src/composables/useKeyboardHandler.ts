@@ -26,47 +26,37 @@ export function useKeyboardHandler(options: KeyboardHandlerOptions) {
       !!event.metaKey === !!binding.metaKey
     )
   }
+
+  // キーマッチング関数（KeyBinding配列）
+  const matchesBindings = (event: KeyboardEvent, bindings: KeyBinding[]): boolean => {
+    return bindings.some(binding => matchesBinding(event, binding))
+  }
   
   // キーイベントを処理
   const handleKeyDown = (event: KeyboardEvent) => {
     // 編集中の要素（input, textarea）からのイベントは無視
     const target = event.target as HTMLElement
     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-      console.log('KeyboardHandler: ignoring event from', target.tagName)
       return
     }
     
-    console.log('KeyboardHandler processing:', event.key, {
-      shiftKey: event.shiftKey,
-      ctrlKey: event.ctrlKey,
-      altKey: event.altKey,
-      metaKey: event.metaKey,
-      target: target?.tagName
-    })
-    
     // マッチするアクションを全て収集
     const matchingActions: string[] = []
-    for (const [action, binding] of Object.entries(keyConfig)) {
-      if (matchesBinding(event, binding)) {
+    for (const [action, bindings] of Object.entries(keyConfig)) {
+      if (matchesBindings(event, bindings)) {
         matchingActions.push(action)
       }
     }
-    
-    console.log('KeyboardHandler: matching actions:', matchingActions)
     
     // マッチしたアクションの中から最初に見つかったハンドラーを実行
     for (const action of matchingActions) {
       const handler = keyHandlers.value.get(action as KeyAction)
       if (handler) {
-        console.log('KeyboardHandler: executing action', action)
         event.preventDefault()
-        const result = handler(action as KeyAction, event)
-        console.log('KeyboardHandler: action executed, stopping')
+        handler(action as KeyAction, event)
         return
       }
     }
-    
-    console.log('KeyboardHandler: no handler found for matching actions')
   }
   
   // キーハンドラーを登録

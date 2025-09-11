@@ -33,6 +33,7 @@ export function useCellSelection(options: CellSelectionOptions) {
   const selectedRange = ref<SelectionRange | null>(null)
   const activeCell = ref<CellPosition | null>(null) // 実際の編集対象セル
   const anchorCell = ref<CellPosition | null>(null) // 範囲選択のアンカー（固定点）
+  const currentEndCell = ref<CellPosition | null>(null) // 現在の範囲拡張の終端セル
   const mode = ref<CellSelectionMode>('selecting')
   const editingValue = ref('')
 
@@ -59,6 +60,7 @@ export function useCellSelection(options: CellSelectionOptions) {
     selectedRange.value = range
     activeCell.value = { ...position } // アクティブセルを設定
     anchorCell.value = { ...position } // 範囲選択のアンカーもリセット
+    currentEndCell.value = { ...position } // 終端セルもリセット
     mode.value = 'selecting'
   }
 
@@ -68,6 +70,7 @@ export function useCellSelection(options: CellSelectionOptions) {
     selectedRange.value = normalizeRange(range)
     activeCell.value = { ...start } // アクティブセルは開始セル（アンカー）に固定
     anchorCell.value = { ...start } // 開始セルをアンカーとして設定
+    currentEndCell.value = { ...end } // 終端セルを設定
     mode.value = 'selecting'
   }
 
@@ -76,6 +79,7 @@ export function useCellSelection(options: CellSelectionOptions) {
     const range: SelectionRange = { start, end }
     selectedRange.value = normalizeRange(range)
     // activeCell.value は変更しない
+    currentEndCell.value = { ...end } // 終端セルを更新
     mode.value = 'selecting'
   }
 
@@ -115,44 +119,43 @@ export function useCellSelection(options: CellSelectionOptions) {
   const extendSelection = (direction: 'up' | 'down' | 'left' | 'right') => {
     if (!activeCell.value) return
 
-    // 現在の選択範囲の終端位置を取得（範囲選択が始まっている場合）
-    // 範囲選択中でない場合はアクティブセルの位置を使用
-    const currentEndPosition = selectedRange.value ? 
-      (selectedRange.value.start.row === anchorCell.value?.row && 
-       selectedRange.value.start.col === anchorCell.value?.col) 
-        ? selectedRange.value.end 
-        : selectedRange.value.start
-      : activeCell.value
+    // アンカーが設定されていない場合は現在のアクティブセルをアンカーとして設定
+    if (!anchorCell.value) {
+      anchorCell.value = { ...activeCell.value }
+      currentEndCell.value = { ...activeCell.value }
+    }
 
-    let newPosition: CellPosition
+    // 現在の終端位置から新しい終端位置を計算
+    const currentEndPosition = currentEndCell.value || activeCell.value
+    
+    let newEndPosition: CellPosition
     switch (direction) {
       case 'up':
-        newPosition = { ...currentEndPosition, row: currentEndPosition.row - 1 }
+        newEndPosition = { ...currentEndPosition, row: currentEndPosition.row - 1 }
         break
       case 'down':
-        newPosition = { ...currentEndPosition, row: currentEndPosition.row + 1 }
+        newEndPosition = { ...currentEndPosition, row: currentEndPosition.row + 1 }
         break
       case 'left':
-        newPosition = { ...currentEndPosition, col: currentEndPosition.col - 1 }
+        newEndPosition = { ...currentEndPosition, col: currentEndPosition.col - 1 }
         break
       case 'right':
-        newPosition = { ...currentEndPosition, col: currentEndPosition.col + 1 }
+        newEndPosition = { ...currentEndPosition, col: currentEndPosition.col + 1 }
         break
     }
 
-    newPosition = clampPosition(newPosition)
+    newEndPosition = clampPosition(newEndPosition)
     
-    // アンカーセルを使用して範囲を拡張
-    // アンカーが設定されていない場合は現在のアクティブセルをアンカーとする
-    const anchor = anchorCell.value || activeCell.value
+    // 終端位置を更新
+    currentEndCell.value = { ...newEndPosition }
+    
+    // アンカーから新しい終端位置までの範囲を作成してnormalizeして保存
     const range: SelectionRange = {
-      start: { ...anchor },
-      end: { ...newPosition }
+      start: { ...anchorCell.value },
+      end: { ...newEndPosition }
     }
     
     selectedRange.value = normalizeRange(range)
-    // アクティブセルは移動しない（アンカーセルと同じ位置を維持）
-    // アンカーセルは維持（変更しない）
   }
 
   // 全選択
@@ -164,8 +167,16 @@ export function useCellSelection(options: CellSelectionOptions) {
       end: { row: rowCount.value - 1, col: columnCount.value - 1 }
     }
     selectedRange.value = range
-    activeCell.value = { row: 0, col: 0 }
-    anchorCell.value = { row: 0, col: 0 } // アンカーも設定
+    
+    // アクティブセルがない場合のみ(0,0)に設定、ある場合は現在位置を維持
+    if (!activeCell.value) {
+      activeCell.value = { row: 0, col: 0 }
+      anchorCell.value = { row: 0, col: 0 }
+    } else {
+      // 現在のアクティブセルをアンカーとして設定
+      anchorCell.value = { ...activeCell.value }
+    }
+    
     mode.value = 'selecting'
   }
 
@@ -196,56 +207,38 @@ export function useCellSelection(options: CellSelectionOptions) {
 
   // 編集開始
   const startEditing = (position?: CellPosition) => {
-    console.log('startEditing called, current mode:', mode.value, 'position:', position)
-    
     if (mode.value === 'editing') {
-      console.log('Already editing, finishing current edit first')
       finishEditing()
     }
-    
-    // 編集対象のセルを決定（指定がない場合はアクティブセル）
+
     const editTarget = position || activeCell.value
     if (!editTarget) {
-      console.log('No edit target available')
       return
     }
-    
-    console.log('Starting edit for cell:', editTarget)
+
     mode.value = 'editing'
     editingValue.value = getCellValue(editTarget)
-    console.log('Edit mode set, editing value:', editingValue.value)
   }
 
   // 編集終了
   const finishEditing = () => {
-    console.log('finishEditing called, current mode:', mode.value, 'activeCell:', activeCell.value)
-    
     if (mode.value !== 'editing' || !activeCell.value) {
-      console.log('Not in editing mode or no active cell, skipping')
       return
     }
 
-    // アクティブセルの値を更新
-    console.log('Updating cell value:', editingValue.value)
     updateCellValue(activeCell.value, editingValue.value)
-    
     mode.value = 'selecting'
     editingValue.value = ''
-    
-    // フォーカスをグリッドコンテナに戻す
+
     setTimeout(() => {
       if (gridContainer.value) {
         gridContainer.value.focus()
-        console.log('Focus returned to grid container')
       }
     }, 0)
-    
-    console.log('Edit finished, mode set to selecting')
   }
 
   // 編集キャンセル
   const cancelEditing = () => {
-    console.log('cancelEditing called')
     mode.value = 'selecting'
     editingValue.value = ''
     
@@ -253,7 +246,6 @@ export function useCellSelection(options: CellSelectionOptions) {
     setTimeout(() => {
       if (gridContainer.value) {
         gridContainer.value.focus()
-        console.log('Focus returned to grid container after cancel')
       }
     }, 0)
   }
@@ -337,31 +329,22 @@ export function useCellSelection(options: CellSelectionOptions) {
     }
   })
 
-  // 統合されたEnterキーハンドラー（モード判定で分岐）
-  keyboardHandler.registerHandler('confirmEdit', () => {
-    console.log('Enter key handler called, current mode:', mode.value)
-    if (mode.value === 'editing') {
-      console.log('In editing mode, finishing edit')
-      finishEditing()
-    } else {
-      console.log('Not in editing mode, starting edit')
+  // 編集開始/確定ハンドラー（F2, Enter, Shift+Enter すべてに対応）
+  keyboardHandler.registerHandler('startEdit', () => {
+    if (mode.value !== 'editing') {
       startEditing()
     }
   })
 
   keyboardHandler.registerHandler('cancelEdit', () => {
-    console.log('cancelEdit handler called, current mode:', mode.value)
     if (mode.value === 'editing') {
       cancelEditing()
       return
     }
-    console.log('Not in editing mode, ignoring cancelEdit')
   })
 
   keyboardHandler.registerHandler('startEdit', () => {
-    console.log('F2 key handler called, current mode:', mode.value)
     if (mode.value === 'editing') {
-      console.log('Already in editing mode, ignoring F2')
       return
     }
     startEditing()
@@ -370,24 +353,24 @@ export function useCellSelection(options: CellSelectionOptions) {
   // startEditWithEnterは削除（confirmEditで統合）
 
   keyboardHandler.registerHandler('moveNext', () => {
-    console.log('moveNext handler called, current mode:', mode.value)
     if (mode.value === 'editing') {
       finishEditing()
-      // 編集終了後に次のセルに移動
-      setTimeout(() => moveActiveCell('right'), 0)
+      // 編集終了後に次のセルに移動（範囲を考慮）
+      setTimeout(() => performNextCellMove('next'), 10)
     } else {
-      moveActiveCell('right')
+      // 選択中の場合は範囲を考慮した次のセル移動（即座に実行）
+      performNextCellMove('next')
     }
   })
 
   keyboardHandler.registerHandler('movePrevious', () => {
-    console.log('movePrevious handler called, current mode:', mode.value)
     if (mode.value === 'editing') {
       finishEditing()
-      // 編集終了後に前のセルに移動
-      setTimeout(() => moveActiveCell('left'), 0)
+      // 編集終了後に前のセルに移動（範囲を考慮）
+      setTimeout(() => performNextCellMove('previous'), 10)
     } else {
-      moveActiveCell('left')
+      // 選択中の場合は範囲を考慮した前のセル移動（即座に実行）
+      performNextCellMove('previous')
     }
   })
 
@@ -438,17 +421,74 @@ export function useCellSelection(options: CellSelectionOptions) {
     selectAll()
   })
 
-  // Tab移動処理
-  const handleTabMove = (direction: 'next' | 'previous') => {
-    console.log('handleTabMove called with direction:', direction)
-    // 少し遅延させてフォーカスが戻ってから移動
+  const handleMoveCell = (direction: 'next' | 'previous' | 'down' | 'up') => {
     setTimeout(() => {
+      if (direction === 'next' || direction === 'previous') {
+        performNextCellMove(direction)
+      } else {
+        moveActiveCell(direction)
+      }
+    }, 10)
+  }
+  
+  const performNextCellMove = (direction: 'next' | 'previous') => {
+    if (selectedRange.value && !isSingleCell(selectedRange.value)) {
+      // 範囲選択されている場合は範囲内で移動
+      moveWithinRange(direction)
+    } else {
+      // 単一セル選択の場合は通常移動
       if (direction === 'next') {
         moveActiveCell('right')
       } else {
         moveActiveCell('left')
       }
-    }, 10)
+    }
+  }
+  
+  // 単一セルかどうかを判定
+  const isSingleCell = (range: SelectionRange): boolean => {
+    return range.start.row === range.end.row && range.start.col === range.end.col
+  }
+  
+  // 範囲内での次のセル・前のセル移動
+  const moveWithinRange = (direction: 'next' | 'previous') => {
+    if (!selectedRange.value || !activeCell.value) return
+    
+    const range = selectedRange.value
+    const current = activeCell.value
+    
+    
+    let newRow = current.row
+    let newCol = current.col
+    
+    if (direction === 'next') {
+      // 次のセルに移動、範囲の右端に達したら次の行の左端へ
+      newCol++
+      if (newCol > range.end.col) {
+        newCol = range.start.col
+        newRow++
+        if (newRow > range.end.row) {
+          // 範囲の最下行を超えたら最上行に戻る
+          newRow = range.start.row
+        }
+      }
+    } else {
+      // 前のセルに移動、範囲の左端に達したら前の行の右端へ
+      newCol--
+      if (newCol < range.start.col) {
+        newCol = range.end.col
+        newRow--
+        if (newRow < range.start.row) {
+          // 範囲の最上行を超えたら最下行に戻る
+          newRow = range.end.row
+        }
+      }
+    }
+    
+    const newPosition: CellPosition = { row: newRow, col: newCol }
+    
+    // アクティブセルのみ移動、選択範囲は維持
+    activeCell.value = newPosition
   }
 
   return {
@@ -465,6 +505,6 @@ export function useCellSelection(options: CellSelectionOptions) {
     // メソッド
     finishEditing,
     cancelEditing,
-    handleTabMove
+    handleMoveCell
   }
 }

@@ -17,8 +17,7 @@ div.app
     
     div.grid-table-container
       GridTable(
-        :data="gridData"
-        :default-row-height="24"
+        v-model:data="gridData"
         :default-col-width="100"
         :header-mode="currentHeaderMode"
       )
