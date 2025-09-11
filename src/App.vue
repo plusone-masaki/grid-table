@@ -5,6 +5,18 @@ div.app
   
   div.demo-section
     h2 Demo
+    div.dataset-controls
+      h3 データセット
+      div.button-group
+        button(
+          :class="{ active: datasetType === 'small' }"
+          @click="switchToSmallDataset"
+        ) 小データセット (6行×5列)
+        button(
+          :class="{ active: datasetType === 'large' }"
+          @click="switchToLargeDataset"
+        ) 大データセット (1000行×100列)
+    
     div.header-mode-controls
       h3 Header Mode
       div.button-group
@@ -15,11 +27,31 @@ div.app
           @click="currentHeaderMode = mode.value"
         ) {{ mode.label }}
     
+    div.sizing-controls
+      h3 サイズ設定
+      div.button-group
+        button(
+          :class="{ active: useDynamicSizing === false }"
+          @click="useDynamicSizing = false"
+        ) 固定サイズ
+        button(
+          :class="{ active: useDynamicSizing === true }"
+          @click="useDynamicSizing = true"
+        ) 動的サイズ
+    
+    div.data-info
+      p 現在のデータ: {{ gridData.length }}行 × {{ gridData[0]?.length || 0 }}列
+    
     div.grid-table-container
       GridTable(
         v-model:data="gridData"
         :default-col-width="100"
+        :default-row-height="24"
         :header-mode="currentHeaderMode"
+        :viewport-height="600"
+        :viewport-width="1000"
+        :row-heights="useDynamicSizing ? dynamicRowHeights : undefined"
+        :col-widths="useDynamicSizing ? dynamicColWidths : undefined"
       )
 </template>
 
@@ -27,16 +59,52 @@ div.app
 import { ref } from 'vue'
 import GridTable from '@/components/GridTable.vue'
 import type { HeaderMode } from '@/types/header-modes'
+import { generateLargeDataset, generateTestRowHeights, generateTestColWidths } from '@/utils'
 
 // Demo data (Excel-like)
-const gridData = ref<string[][]>([
+const smallGridData: string[][] = [
   ['Name', 'Age', 'City', 'Country', 'Email'],
   ['John Doe', '30', 'Tokyo', 'Japan', 'john@example.com'],
   ['Jane Smith', '25', 'New York', 'USA', 'jane@example.com'],
   ['Bob Johnson', '35', 'London', 'UK', 'bob@example.com'],
   ['Alice Brown', '28', 'Paris', 'France', 'alice@example.com'],
   ['Charlie Wilson', '32', 'Sydney', 'Australia', 'charlie@example.com']
-])
+]
+
+// 現在表示中のデータ
+const gridData = ref<string[][]>(smallGridData)
+
+// データセットの種類
+const datasetType = ref<'small' | 'large'>('small')
+
+// 動的サイズの使用フラグ
+const useDynamicSizing = ref(false)
+
+// 動的サイズ配列
+const dynamicRowHeights = ref<number[]>([])
+const dynamicColWidths = ref<number[]>([])
+
+// データセット切り替え関数
+const switchToSmallDataset = () => {
+  gridData.value = smallGridData
+  datasetType.value = 'small'
+}
+
+const switchToLargeDataset = () => {
+  console.log('大量データセットを生成中...')
+  const startTime = performance.now()
+  gridData.value = generateLargeDataset()
+  
+  // 動的サイズ配列も生成
+  dynamicRowHeights.value = generateTestRowHeights(1000)
+  dynamicColWidths.value = generateTestColWidths(100)
+  
+  const endTime = performance.now()
+  console.log(`大量データセット生成完了: ${endTime - startTime}ms`)
+  datasetType.value = 'large'
+  // 大量データの場合は自動的に動的サイズを有効にする
+  useDynamicSizing.value = true
+}
 
 // ヘッダーモードの設定
 const headerModes = [
@@ -73,7 +141,7 @@ const currentHeaderMode = ref<HeaderMode>('alphabetic')
     color: #0078d4
     font-size: 18px
   
-  .header-mode-controls
+  .dataset-controls, .header-mode-controls, .sizing-controls
     margin-bottom: 20px
     
     h3
@@ -107,6 +175,24 @@ const currentHeaderMode = ref<HeaderMode>('alphabetic')
           
           &:hover
             background-color: #106ebe
+  
+  .data-info
+    margin-bottom: 15px
+    
+    p
+      font-size: 14px
+      color: #0078d4
+      font-weight: 600
+      margin: 0
+      
+    .performance-warning
+      color: #d97706
+      font-weight: 700
+      background-color: #fef3c7
+      padding: 8px 12px
+      border-radius: 4px
+      border-left: 4px solid #d97706
+      margin-top: 8px
 
   .grid-table-container
     display: inline-block
@@ -115,3 +201,4 @@ const currentHeaderMode = ref<HeaderMode>('alphabetic')
     padding: 8px
     background-color: #f9fafb
 </style>
+

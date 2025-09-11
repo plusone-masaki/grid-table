@@ -503,6 +503,7 @@ export function useCellSelection(options: CellSelectionOptions) {
     selectionRangePosition,
     
     // メソッド
+    selectCell,
     finishEditing,
     cancelEditing,
     handleMoveCell
