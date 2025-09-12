@@ -4,11 +4,11 @@ export interface VirtualScrollOptions {
   containerRef: Ref<HTMLElement | undefined>
   totalRows: Ref<number>
   totalCols: Ref<number>
-  rowHeights: Ref<number[]> // 各行の高さの配列
-  colWidths: Ref<number[]>  // 各列の幅の配列
+  rowHeights: Ref<number[]>
+  colWidths: Ref<number[]>
   viewportHeight: number
   viewportWidth: number
-  overscan?: number // 可視領域外にもレンダリングするアイテム数（スムーズスクロール用）
+  rowNumberColWidth: number
 }
 
 export interface VirtualRange {
@@ -29,9 +29,7 @@ export interface VirtualScrollState {
   // 全体のサイズ
   totalHeight: number
   totalWidth: number
-  // 可視領域のオフセット
   offsetTop: number
-  offsetLeft: number
 }
 
 export function useVirtualScroll(options: VirtualScrollOptions) {
@@ -42,7 +40,8 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     rowHeights,
     colWidths,
     viewportHeight,
-    viewportWidth
+    viewportWidth,
+    rowNumberColWidth
   } = options
 
   // スクロール状態
@@ -53,8 +52,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
   const prevScrollLeft = ref(0)
   const scrollDirection = ref<'left' | 'right' | 'none'>('none')
 
-  // 累積位置計算のためのヘルパー関数（メモ化で最適化）
-  // キャッシュ変数
+  // 累積位置計算（キャッシュ付き）
   let cachedRowHeights: number[] = []
   let cachedRowCumulative: number[] = []
   
@@ -175,37 +173,28 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     
     return { 
       start: Math.max(0, startCol), 
-      end: Math.min(totalCols.value, endCol + 1) 
+      end: Math.min(totalCols.value, endCol) 
     }
   })
 
   // 動的オーバースキャン計算
   const dynamicRowOverscan = computed(() => {
-    // ビューポートに表示される平均行数を計算
     const totalRowCount = totalRows.value
-    let totalHeightSum = 0
-    for (let i = 0; i < totalRowCount; i++) {
-      totalHeightSum += rowHeights.value[i] || 24
-    }
+    const totalHeightSum = rowHeights.value.reduce((sum, height, i) => 
+      i < totalRowCount ? sum + (height || 24) : sum, 0)
     const averageRowHeight = totalHeightSum / Math.max(totalRowCount, 1)
     const visibleRowCount = Math.ceil(viewportHeight / averageRowHeight)
     
-    // 表示行数の1/4程度を余分に表示（最小2行、最大10行）
     return Math.max(2, Math.min(10, Math.ceil(visibleRowCount / 4)))
   })
 
   const dynamicColOverscan = computed(() => {
-    // ビューポートに表示される平均列数を計算
     const totalColCount = totalCols.value
-    let totalWidthSum = 0
-    for (let i = 0; i < totalColCount; i++) {
-      totalWidthSum += colWidths.value[i] || 100
-    }
+    const totalWidthSum = colWidths.value.reduce((sum, width, i) => 
+      i < totalColCount ? sum + (width || 100) : sum, 0)
     const averageColWidth = totalWidthSum / Math.max(totalColCount, 1)
     const visibleColCount = Math.ceil(viewportWidth / averageColWidth)
     
-    // 横スクロール時の吸い付きを防ぐため、より多くの列を保持
-    // 表示列数の半分程度を余分に表示（最小5列、最大20列）
     return Math.max(5, Math.min(20, Math.ceil(visibleColCount / 2)))
   })
 
@@ -261,8 +250,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     scrollLeft: scrollLeft.value,
     totalHeight: totalHeight.value,
     totalWidth: totalWidth.value,
-    offsetTop: 0, // 空行実装により不要
-    offsetLeft: 0  // 空列実装により不要
+    offsetTop: 0
   }))
 
   // レンダリング対象のデータインデックス計算
@@ -282,7 +270,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     return indices
   })
 
-  // スクロールイベントハンドラ（RAF最適化 + スムーズ化）
+  // スクロールイベントハンドラ（RAF最適化）
   let rafId: number | null = null
   let lastScrollTime = 0
   const SCROLL_THROTTLE_MS = 16 // 60FPS制限
@@ -294,7 +282,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
       cancelAnimationFrame(rafId)
     }
     
-    // スロットリング: 前回から16ms以内なら処理をスキップ
+    // 16ms制限でスロットリング
     if (now - lastScrollTime < SCROLL_THROTTLE_MS) {
       return
     }
@@ -302,7 +290,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     rafId = requestAnimationFrame(() => {
       const target = event.target as HTMLElement
       
-      // スクロール値の微調整による滑らかさ向上
+      // スクロール値を整数に丸める
       const newScrollTop = Math.round(target.scrollTop)
       const newScrollLeft = Math.round(target.scrollLeft)
       
@@ -326,8 +314,19 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
   // スクロール位置を設定
   const scrollTo = (top: number, left: number) => {
     if (containerRef.value) {
+      // scroll-behaviorを一時的に無効化して即座にスクロール
+      const originalScrollBehavior = containerRef.value.style.scrollBehavior
+      containerRef.value.style.scrollBehavior = 'auto'
+      
       containerRef.value.scrollTop = top
       containerRef.value.scrollLeft = left
+      
+      // scroll-behaviorを元に戻す
+      containerRef.value.style.scrollBehavior = originalScrollBehavior
+      
+      // スクロール位置のrefも更新
+      scrollTop.value = top
+      scrollLeft.value = left
     }
   }
 
@@ -338,6 +337,81 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     const top = rowCumulative[rowIndex] || 0
     const left = colCumulative[colIndex] || 0
     scrollTo(top, left)
+  }
+
+  // セルが可視領域内に収まるように自動スクロール
+  const ensureCellVisible = (rowIndex: number, colIndex: number) => {
+    if (!containerRef.value) return
+
+    const currentScrollTop = scrollTop.value
+    const currentScrollLeft = scrollLeft.value
+    const containerHeight = containerRef.value.clientHeight
+    const containerWidth = containerRef.value.clientWidth
+
+    // テーブル要素を取得
+    const tableElement = getTableElement()
+    if (!tableElement) return
+
+    // 表示中の行でのインデックスを計算
+    const visibleRows = visibleRowIndices.value
+    const visibleCols = visibleColIndices.value
+    
+    const visibleRowIndex = visibleRows.indexOf(rowIndex)
+    const visibleColIndex = visibleCols.indexOf(colIndex)
+    
+    if (visibleRowIndex === -1 || visibleColIndex === -1) {
+      return
+    }
+
+    // 実際のDOM要素から座標を取得
+    const row = tableElement.rows[visibleRowIndex + 2]
+    if (!row) return
+
+    const cell = row.cells[visibleColIndex + 2]
+    if (!cell) return
+
+    // セルの実際の座標を取得
+    const cellRect = cell.getBoundingClientRect()
+    const containerRect = containerRef.value.getBoundingClientRect()
+    
+    // コンテナ内相対座標に変換
+    const cellTop = cellRect.top - containerRect.top
+    const cellBottom = cellTop + cellRect.height
+    const cellLeft = cellRect.left - containerRect.left
+    const cellRight = cellLeft + cellRect.width
+
+    // 現在の可視領域の境界を計算（ヘッダーの高さを考慮）
+    const headerHeight = 24 // ヘッダーの高さ
+    const visibleTop = 0 // データ行領域の開始位置
+    const visibleBottom = containerHeight - headerHeight // データ行領域の終了位置
+    const visibleLeft = rowNumberColWidth
+    const visibleRight = containerWidth
+
+    // セルの座標をデータ行領域の相対座標に変換
+    const dataCellTop = cellTop - headerHeight
+    const dataCellBottom = cellBottom - headerHeight
+
+    let targetTop = currentScrollTop
+    let targetLeft = currentScrollLeft
+
+    // 行の可視性チェック（データ行領域の相対座標で判定）
+    if (dataCellTop < visibleTop) {
+      targetTop = currentScrollTop + dataCellTop
+    } else if (dataCellBottom > visibleBottom) {
+      targetTop = currentScrollTop + dataCellBottom - visibleBottom
+    }
+
+    // 列の可視性チェック
+    if (cellLeft < visibleLeft) {
+      targetLeft = currentScrollLeft + cellLeft - rowNumberColWidth
+    } else if (cellRight > visibleRight) {
+      targetLeft = currentScrollLeft + cellRight - containerWidth
+    }
+
+    // スクロール位置が変更された場合のみスクロール実行
+    if (targetTop !== currentScrollTop || targetLeft !== currentScrollLeft) {
+      scrollTo(targetTop, targetLeft)
+    }
   }
 
   // セルが可視領域内にあるかチェック
@@ -351,16 +425,80 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     )
   }
 
-  // セルの絶対位置を取得
+  // テーブル要素を取得するヘルパー関数
+  const getTableElement = (): HTMLTableElement | null => {
+    if (!containerRef.value) return null
+    return containerRef.value.querySelector('.grid-table__table') as HTMLTableElement
+  }
+
+  // セルのテーブル内相対位置を取得（仮想スクロール対応）
   const getCellPosition = (rowIndex: number, colIndex: number) => {
-    const rowCumulative = getRowCumulativeHeights.value
-    const colCumulative = getColCumulativeWidths.value
-    const rowHeightValue = rowHeights.value[rowIndex] || 24
     const colWidthValue = colWidths.value[colIndex] || 100
+    const rowHeightValue = rowHeights.value[rowIndex] || 24
+    
+    // 表示中の行でのインデックスを計算
+    const visibleRows = visibleRowIndices.value
+    const visibleCols = visibleColIndices.value
+    
+    // バリデーション
+    if (visibleRows.length === 0 || visibleCols.length === 0) {
+      return {
+        top: 24 + (rowIndex * 24),
+        left: rowNumberColWidth + (colIndex * 100),
+        width: colWidthValue,
+        height: rowHeightValue
+      }
+    }
+    
+    const visibleRowIndex = visibleRows.indexOf(rowIndex)
+    const visibleColIndex = visibleCols.indexOf(colIndex)
+    
+    // セルが可視範囲にない場合は、デフォルト位置を返す（エラーを投げない）
+    if (visibleRowIndex === -1 || visibleColIndex === -1) {
+      return {
+        top: 24 + (rowIndex * 24),
+        left: rowNumberColWidth + (colIndex * 100),
+        width: colWidthValue,
+        height: rowHeightValue
+      }
+    }
+    
+    // テーブル内での相対位置を計算
+    let top = 24 // ヘッダー高さ
+    
+    // 上空行の高さを追加（rowHeightsから直接取得）
+    const firstVisibleRowIndex = visibleRows[0]!
+    if (firstVisibleRowIndex > 0) {
+      for (let i = 0; i < firstVisibleRowIndex; i++) {
+        top += rowHeights.value[i] || 24
+      }
+    }
+    
+    // 表示中の行までの累積高さを追加（rowHeightsから直接取得）
+    for (let i = 0; i < visibleRowIndex; i++) {
+      const actualRowIndex = visibleRows[i]!
+      top += rowHeights.value[actualRowIndex] || 24
+    }
+    
+    // 左空列の幅を計算
+    let left = 0
+    const firstVisibleColIndex = visibleCols[0]!
+    
+    if (firstVisibleColIndex > 0) {
+      for (let i = 0; i < firstVisibleColIndex; i++) {
+        left += colWidths.value[i] || 100
+      }
+    }
+    
+    // 表示中の列までの累積幅を追加
+    for (let i = 0; i < visibleColIndex; i++) {
+      const actualColIndex = visibleCols[i]!
+      left += colWidths.value[actualColIndex] || 100
+    }
     
     return {
-      top: rowCumulative[rowIndex] || 0,
-      left: colCumulative[colIndex] || 0,
+      top,
+      left,
       width: colWidthValue,
       height: rowHeightValue
     }
@@ -402,6 +540,7 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     // メソッド
     scrollTo,
     scrollToCell,
+    ensureCellVisible,
     isCellVisible,
     getCellPosition,
     

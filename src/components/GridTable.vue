@@ -3,9 +3,7 @@ div.grid-table(
   :style="containerStyle"
   ref="gridContainer"
 )
-  div.grid-table__content(
-    :style="scrollContainerStyle"
-  )
+  div.grid-table__content
     // 統合テーブル
     table.grid-table__table(
       :style="tableStyle"
@@ -45,7 +43,7 @@ div.grid-table(
         tr.grid-table__row(
           v-for="(rowIndex, i) in visibleRowIndices"
           :key="rowIndex"
-          :style="{ minHeight: `${computedRowHeights[rowIndex] || defaultRowHeight}px` }"
+          :style="{ height: `${computedRowHeights[rowIndex] || defaultRowHeight}px` }"
         )
           th.grid-table__cell.grid-table__cell--row-number {{ rowIndex + 1 }}
           td.grid-table__empty-cell
@@ -151,12 +149,13 @@ const computedColWidths = computed(() => {
 // テーブル要素の参照
 const gridContainer = ref<HTMLTableElement>()
 
-// 仮想スクロール機能（常に有効）
+// 仮想スクロール機能
 const {
   virtualState,
   visibleRowIndices,
   visibleColIndices,
   scrollToCell,
+  ensureCellVisible,
   getCellPosition
 } = useVirtualScroll({
   containerRef: gridContainer as any,
@@ -166,22 +165,20 @@ const {
   colWidths: computedColWidths,
   viewportHeight: props.viewportHeight,
   viewportWidth: props.viewportWidth,
-  // 動的オーバースキャンを使用（useVirtualScroll内で計算）
+  rowNumberColWidth: props.rowNumberColWidth
 })
-
-// 仮想スクロール機能は常に有効なので、不要なcomputedは削除
 
 // 統一イベントシステム
 const eventSystem = useGridEvents(gridContainer)
 
-// セル選択・編集機能（統合）
+// セル選択・編集機能
 const {
   mode,
   activeCell,
   selectedRange,
   editingValue,
-  activeCellPosition: rawActiveCellPosition,
-  selectionRangePosition: rawSelectionRangePosition,
+  activeCellPosition,
+  selectionRangePosition,
   finishEditing,
   cancelEditing,
   handleMoveCell,
@@ -191,40 +188,12 @@ const {
   rowCount,
   gridContainer,
   eventSystem,
-  data
+  data,
+  getCellPosition,
+  ensureCellVisible,
+  rowNumberColWidth: props.rowNumberColWidth
 })
 
-// 仮想スクロール用の位置計算
-const activeCellPosition = computed(() => {
-  if (!activeCell.value) {
-    return { top: 0, left: 0, width: 0, height: 0 }
-  }
-  
-  const position = getCellPosition(activeCell.value.row, activeCell.value.col)
-  
-  return {
-    top: position.top,
-    left: position.left + props.rowNumberColWidth,
-    width: position.width,
-    height: position.height
-  }
-})
-
-const selectionRangePosition = computed(() => {
-  if (!selectedRange.value) {
-    return { top: 0, left: 0, width: 0, height: 0 }
-  }
-  
-  const startPos = getCellPosition(selectedRange.value.start.row, selectedRange.value.start.col)
-  const endPos = getCellPosition(selectedRange.value.end.row, selectedRange.value.end.col)
-  
-  return {
-    top: startPos.top,
-    left: startPos.left + props.rowNumberColWidth,
-    width: endPos.left + endPos.width - startPos.left,
-    height: endPos.top + endPos.height - startPos.top
-  }
-})
 
 // セルクリックハンドラー
 const handleCellClick = (rowIndex: number, colIndex: number) => {
@@ -247,17 +216,10 @@ const containerStyle = computed(() => ({
   overflow: 'auto' as const
 }))
 
-// テーブル全体の固定幅計算（常に一定）
+// テーブル全体の固定幅計算
 const totalTableWidth = computed(() => {
-  // 行番号列の幅
-  let totalWidth = props.rowNumberColWidth
-  
-  // 全列の幅を合計（常に全列分を計算）
-  for (let i = 0; i < columnCount.value; i++) {
-    totalWidth += computedColWidths.value[i] || props.defaultColWidth
-  }
-  
-  return totalWidth
+  const totalColWidth = computedColWidths.value.reduce((sum, width) => sum + (width || props.defaultColWidth), 0)
+  return props.rowNumberColWidth + totalColWidth
 })
 
 const tableStyle = computed(() => ({
@@ -265,85 +227,42 @@ const tableStyle = computed(() => ({
   width: `${totalTableWidth.value}px` // 常に一定の幅を保つ
 }))
 
-// 空列の幅計算（テーブル幅固定化により最適化）
+// 空列の幅計算
 const leftEmptyWidth = computed(() => {
-  // 可視列の範囲に基づいて計算（要素の追加・削除と同期）
   const firstVisibleColIndex = visibleColIndices.value[0]
+  if (firstVisibleColIndex === undefined || firstVisibleColIndex <= 0) return 0
   
-  // 最初の可視列がない場合、または最初から表示されている場合は幅0
-  if (firstVisibleColIndex === undefined || firstVisibleColIndex <= 0) {
-    return 0
-  }
-  
-  // 表示されていない左側の列の合計幅を計算
-  let hiddenWidth = 0
-  for (let i = 0; i < firstVisibleColIndex; i++) {
-    hiddenWidth += computedColWidths.value[i] || props.defaultColWidth
-  }
-  
-  return Math.max(0, hiddenWidth) // 負の値を防ぐ
+  return computedColWidths.value
+    .slice(0, firstVisibleColIndex)
+    .reduce((sum, width) => sum + (width || props.defaultColWidth), 0)
 })
 
 const rightEmptyWidth = computed(() => {
-  // テーブル幅固定化により、右側空列は「残り全部」として計算
-  const totalWidth = totalTableWidth.value
-  const rowNumberWidth = props.rowNumberColWidth
-  const leftWidth = leftEmptyWidth.value
+  const visibleColumnsWidth = visibleColIndices.value
+    .reduce((sum, colIndex) => sum + (computedColWidths.value[colIndex] || props.defaultColWidth), 0)
   
-  // 表示中の列の合計幅を計算
-  let visibleColumnsWidth = 0
-  for (const colIndex of visibleColIndices.value) {
-    visibleColumnsWidth += computedColWidths.value[colIndex] || props.defaultColWidth
-  }
-  
-  // 残り幅 = 全体幅 - 行番号列 - 左側空列 - 表示列
-  const remainingWidth = totalWidth - rowNumberWidth - leftWidth - visibleColumnsWidth
-  
-  return Math.max(0, remainingWidth) // 負の値を防ぐ
+  return Math.max(0, totalTableWidth.value - props.rowNumberColWidth - leftEmptyWidth.value - visibleColumnsWidth)
 })
 
 // 空行の高さ計算
 const topEmptyHeight = computed(() => {
-  // 可視行の範囲に基づいて計算（要素の追加・削除と同期）
   const firstVisibleRowIndex = visibleRowIndices.value[0]
+  if (firstVisibleRowIndex === undefined || firstVisibleRowIndex <= 0) return 0
   
-  // 最初の可視行がない場合、または最初から表示されている場合は高さ0
-  if (firstVisibleRowIndex === undefined || firstVisibleRowIndex <= 0) {
-    return 0
-  }
-  
-  // 表示されていない上側の行の合計高さを計算
-  let hiddenHeight = 0
-  for (let i = 0; i < firstVisibleRowIndex; i++) {
-    hiddenHeight += computedRowHeights.value[i] || props.defaultRowHeight
-  }
-  
-  return Math.max(0, hiddenHeight) // 負の値を防ぐ
+  return computedRowHeights.value
+    .slice(0, firstVisibleRowIndex)
+    .reduce((sum, height) => sum + (height || props.defaultRowHeight), 0)
 })
 
 const bottomEmptyHeight = computed(() => {
-  // 可視行の範囲に基づいて計算（要素の追加・削除と同期）
   const lastVisibleRowIndex = visibleRowIndices.value[visibleRowIndices.value.length - 1]
-  const totalRows = rowCount.value
+  if (lastVisibleRowIndex === undefined || lastVisibleRowIndex >= rowCount.value - 1) return 0
   
-  // 最後の可視行がない場合、または全ての行が表示されている場合は高さ0
-  if (lastVisibleRowIndex === undefined || lastVisibleRowIndex >= totalRows - 1) {
-    return 0
-  }
-  
-  // 表示されていない下側の行の合計高さを計算
-  let hiddenHeight = 0
-  for (let i = lastVisibleRowIndex + 1; i < totalRows; i++) {
-    hiddenHeight += computedRowHeights.value[i] || props.defaultRowHeight
-  }
-  
-  return Math.max(0, hiddenHeight) // 負の値を防ぐ
+  return computedRowHeights.value
+    .slice(lastVisibleRowIndex + 1)
+    .reduce((sum, height) => sum + (height || props.defaultRowHeight), 0)
 })
 
-const scrollContainerStyle = computed(() => ({
-  // サイズ指定を削除 - コンテンツのサイズに自動的に合わせる
-  position: 'relative' as const
-}))
 
 </script>
 
@@ -363,6 +282,7 @@ const scrollContainerStyle = computed(() => ({
   overscroll-behavior: contain
 
 .grid-table__content
+  position: relative
   pointer-events: none
 
 .grid-table__table
@@ -388,11 +308,13 @@ const scrollContainerStyle = computed(() => ({
   border-bottom: 1px solid #d1d5db
   box-sizing: border-box
   color: #374151
-  font-size: 16px
+  font-size: 14px
   font-weight: 600
   line-height: 1.2
   margin: 0
   padding: 2px 4px
+  white-space: nowrap
+  overflow: hidden
   text-align: center
   vertical-align: middle
   user-select: none
@@ -459,8 +381,7 @@ tbody th.grid-table__cell--row-number:hover
 
 // 行の高さ設定
 .grid-table__row
-  height: auto
-  min-height: 24px
+  // 高さはインラインスタイルで指定
 
 .grid-table__row:hover
   background-color: #f8f9fa
@@ -471,16 +392,16 @@ tbody th.grid-table__cell--row-number:hover
   border-bottom: 1px solid #d1d5db
   box-sizing: border-box
   color: #374151
-  font-size: 16px
+  font-size: 14px
   line-height: 1.2
   margin: 0
   padding: 2px 4px
   position: relative
+  white-space: nowrap
+  overflow: hidden
   transition: background-color 0.1s ease-in-out
   user-select: none
   vertical-align: top
-  white-space: pre-wrap
-  word-wrap: break-word
   cursor: pointer
 
 .grid-table__cell:first-child

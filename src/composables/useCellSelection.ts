@@ -1,4 +1,4 @@
-import { ref, computed, type Ref } from 'vue'
+import { ref, computed, nextTick, type Ref } from 'vue'
 import type { GridEventSystem } from './useGridEvents'
 import { useKeyboardHandler } from './useKeyboardHandler'
 import type { KeyAction } from '@/types/key-config'
@@ -21,10 +21,13 @@ export interface CellSelectionOptions {
   gridContainer: Ref<HTMLTableElement | undefined>
   eventSystem: GridEventSystem
   data: Ref<string[][]>
+  getCellPosition: (row: number, col: number) => { top: number; left: number; width: number; height: number }
+  ensureCellVisible: (row: number, col: number) => void
+  rowNumberColWidth: number
 }
 
 export function useCellSelection(options: CellSelectionOptions) {
-  const { columnCount, rowCount, gridContainer, eventSystem, data } = options
+  const { columnCount, rowCount, gridContainer, eventSystem, data, getCellPosition, ensureCellVisible, rowNumberColWidth } = options
   
   // キーボードハンドラーを初期化
   const keyboardHandler = useKeyboardHandler({ gridContainer })
@@ -113,6 +116,12 @@ export function useCellSelection(options: CellSelectionOptions) {
 
     newPosition = clampPosition(newPosition)
     selectCell(newPosition)
+    
+    // セルが可視領域内に収まるように自動スクロール
+    // 次のフレームで実行して、DOMの更新を待つ
+    nextTick(() => {
+      ensureCellVisible(newPosition.row, newPosition.col)
+    })
   }
 
   // 範囲拡張
@@ -250,54 +259,47 @@ export function useCellSelection(options: CellSelectionOptions) {
     }, 0)
   }
 
-  // セル位置計算のヘルパー関数
-  const getCellPosition = (position: CellPosition) => {
-    if (!gridContainer.value) {
-      return { top: 0, left: 0, width: 0, height: 0 }
-    }
-
-    const cellSelector = `tbody tr:nth-child(${position.row + 1}) td:nth-child(${position.col + 2})`
-    const cell = gridContainer.value.querySelector(cellSelector) as HTMLTableCellElement
-    
-    if (!cell) {
-      return { top: 0, left: 0, width: 0, height: 0 }
-    }
-
-    // テーブルコンテナを基準とした相対位置を取得
-    const tableRect = gridContainer.value.getBoundingClientRect()
-    const cellRect = cell.getBoundingClientRect()
-
-    return {
-      top: cellRect.top - tableRect.top,
-      left: cellRect.left - tableRect.left,
-      width: cellRect.width,
-      height: cellRect.height
-    }
-  }
 
   // アクティブセル（編集対象セル）の位置
   const activeCellPosition = computed(() => {
     if (!activeCell.value) {
       return { top: 0, left: 0, width: 0, height: 0 }
     }
-    return getCellPosition(activeCell.value)
+    
+    try {
+      const position = getCellPosition(activeCell.value.row, activeCell.value.col)
+      return {
+        top: position.top,
+        left: position.left + rowNumberColWidth,
+        width: position.width,
+        height: position.height
+      }
+    } catch (error) {
+      console.error('Failed to get active cell position:', error)
+      return { top: 0, left: 0, width: 0, height: 0 }
+    }
   })
 
   // 選択範囲全体の位置
   const selectionRangePosition = computed(() => {
-    if (!selectedRange.value || !gridContainer.value) {
+    if (!selectedRange.value) {
       return { top: 0, left: 0, width: 0, height: 0 }
     }
 
-    const { start, end } = selectedRange.value
-    const startPos = getCellPosition(start)
-    const endPos = getCellPosition(end)
+    try {
+      const { start, end } = selectedRange.value
+      const startPos = getCellPosition(start.row, start.col)
+      const endPos = getCellPosition(end.row, end.col)
 
-    return {
-      top: startPos.top,
-      left: startPos.left,
-      width: endPos.left + endPos.width - startPos.left,
-      height: endPos.top + endPos.height - startPos.top
+      return {
+        top: startPos.top,
+        left: startPos.left + rowNumberColWidth,
+        width: endPos.left + endPos.width - startPos.left,
+        height: endPos.top + endPos.height - startPos.top
+      }
+    } catch (error) {
+      console.error('Failed to get selection range position:', error)
+      return { top: 0, left: 0, width: 0, height: 0 }
     }
   })
 

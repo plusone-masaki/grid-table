@@ -78,7 +78,10 @@ export function generateTestRowHeights(rowCount: number): number[] {
   const heights: number[] = []
   
   for (let i = 0; i < rowCount; i++) {
-    if (i % 10 === 0) {
+    if (i === 0) {
+      // 1行目は通常の高さ（セル選択の位置計算のため）
+      heights.push(24)
+    } else if (i % 10 === 0) {
       // 10行おきに高い行を作る
       heights.push(48)
     } else if (i % 7 === 0) {

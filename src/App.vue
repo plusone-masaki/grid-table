@@ -27,18 +27,6 @@ div.app
           @click="currentHeaderMode = mode.value"
         ) {{ mode.label }}
     
-    div.sizing-controls
-      h3 サイズ設定
-      div.button-group
-        button(
-          :class="{ active: useDynamicSizing === false }"
-          @click="useDynamicSizing = false"
-        ) 固定サイズ
-        button(
-          :class="{ active: useDynamicSizing === true }"
-          @click="useDynamicSizing = true"
-        ) 動的サイズ
-    
     div.data-info
       p 現在のデータ: {{ gridData.length }}行 × {{ gridData[0]?.length || 0 }}列
     
@@ -50,8 +38,8 @@ div.app
         :header-mode="currentHeaderMode"
         :viewport-height="600"
         :viewport-width="1000"
-        :row-heights="useDynamicSizing ? dynamicRowHeights : undefined"
-        :col-widths="useDynamicSizing ? dynamicColWidths : undefined"
+        :row-heights="rowHeights"
+        :col-widths="colWidths"
       )
 </template>
 
@@ -77,17 +65,17 @@ const gridData = ref<string[][]>(smallGridData)
 // データセットの種類
 const datasetType = ref<'small' | 'large'>('small')
 
-// 動的サイズの使用フラグ
-const useDynamicSizing = ref(false)
-
-// 動的サイズ配列
-const dynamicRowHeights = ref<number[]>([])
-const dynamicColWidths = ref<number[]>([])
+// サイズ配列（初期化時に小データセットのサイズを生成）
+const rowHeights = ref<number[]>(generateTestRowHeights(smallGridData.length))
+const colWidths = ref<number[]>(generateTestColWidths(smallGridData[0]?.length || 0))
 
 // データセット切り替え関数
 const switchToSmallDataset = () => {
   gridData.value = smallGridData
   datasetType.value = 'small'
+  // 小データセットでもサイズを生成
+  rowHeights.value = generateTestRowHeights(smallGridData.length)
+  colWidths.value = generateTestColWidths(smallGridData[0]?.length || 0)
 }
 
 const switchToLargeDataset = () => {
@@ -95,15 +83,13 @@ const switchToLargeDataset = () => {
   const startTime = performance.now()
   gridData.value = generateLargeDataset()
   
-  // 動的サイズ配列も生成
-  dynamicRowHeights.value = generateTestRowHeights(1000)
-  dynamicColWidths.value = generateTestColWidths(100)
+  // サイズ配列も生成
+  rowHeights.value = generateTestRowHeights(1000)
+  colWidths.value = generateTestColWidths(100)
   
   const endTime = performance.now()
   console.log(`大量データセット生成完了: ${endTime - startTime}ms`)
   datasetType.value = 'large'
-  // 大量データの場合は自動的に動的サイズを有効にする
-  useDynamicSizing.value = true
 }
 
 // ヘッダーモードの設定
@@ -141,7 +127,7 @@ const currentHeaderMode = ref<HeaderMode>('alphabetic')
     color: #0078d4
     font-size: 18px
   
-  .dataset-controls, .header-mode-controls, .sizing-controls
+  .dataset-controls, .header-mode-controls
     margin-bottom: 20px
     
     h3
