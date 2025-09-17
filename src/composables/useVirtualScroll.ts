@@ -531,11 +531,62 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
     }
   }, { immediate: true })
 
+  // スタイル計算
+  const totalTableWidth = computed(() => {
+    const totalColWidth = colWidths.value.reduce((sum, width) => sum + width, 0)
+    return rowNumberColWidth + totalColWidth
+  })
+
+  const containerStyle = computed(() => ({
+    height: `${viewportHeight}px`,
+    width: `${viewportWidth}px`,
+    overflow: 'auto' as const
+  }))
+
+  const headersTableStyle = computed(() => ({
+    width: `${totalTableWidth.value}px`
+  }))
+
+  const rowNumbersTableStyle = computed(() => ({
+    width: `${rowNumberColWidth}px`,
+    marginTop: `${virtualState.value.offsetTop}px`
+  }))
+
+  const tableStyle = computed(() => ({
+    marginTop: `${virtualState.value.offsetTop}px`,
+    width: `${totalTableWidth.value}px`
+  }))
+
+  const leftEmptyWidth = computed(() => {
+    const firstVisibleColIndex = visibleColIndices.value[0]
+    if (firstVisibleColIndex === undefined || firstVisibleColIndex <= 0) return 0
+    
+    return colWidths.value
+      .slice(0, firstVisibleColIndex)
+      .reduce((sum, width) => sum + width, 0)
+  })
+
+  const rightEmptyWidth = computed(() => {
+    const visibleColumnsWidth = visibleColIndices.value
+      .reduce((sum, colIndex) => sum + (colWidths.value[colIndex] || 0), 0)
+    
+    return Math.max(0, totalTableWidth.value - rowNumberColWidth - leftEmptyWidth.value - visibleColumnsWidth)
+  })
+
   return {
     // 状態
     virtualState,
     visibleRowIndices,
     visibleColIndices,
+    
+    // スタイル計算
+    containerStyle,
+    totalTableWidth,
+    headersTableStyle,
+    rowNumbersTableStyle,
+    tableStyle,
+    leftEmptyWidth,
+    rightEmptyWidth,
     
     // メソッド
     scrollTo,

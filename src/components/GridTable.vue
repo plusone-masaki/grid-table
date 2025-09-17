@@ -4,7 +4,50 @@ div.grid-table(
   ref="gridContainer"
 )
   div.grid-table__content
-    // 統合テーブル
+    // ヘッダーテーブル（上側固定）- 最初に描画
+    table.grid-table__headers(
+      :style="headersTableStyle"
+    )
+      colgroup
+        col.grid-table__row-number-col
+        col.grid-table__empty-col-left(:style="{ width: `${leftEmptyWidth}px` }")
+        col(
+          v-for="colIndex in visibleColIndices"
+          :key="colIndex"
+          :style="{ width: `${computedColWidths[colIndex] || defaultColWidth}px` }"
+        )
+        col.grid-table__empty-col-right(:style="{ width: `${rightEmptyWidth}px` }")
+      
+      thead.grid-table__thead
+        tr.grid-table__header-row
+          th.grid-table__header-cell.grid-table__header-cell.--row-number
+          th.grid-table__empty-cell
+          th.grid-table__header-cell(
+            v-for="colIndex in visibleColIndices"
+            :key="colIndex"
+          ) {{ getColumnHeader(colIndex) }}
+          th.grid-table__empty-cell
+    
+    // 行番号テーブル（左側固定）- 2番目に描画
+    table.grid-table__row-numbers(
+      :style="rowNumbersTableStyle"
+    )
+      colgroup
+        col.grid-table__row-number-col
+      
+      thead.grid-table__thead
+        tr.grid-table__header-row
+          th.grid-table__header-cell.grid-table__header-cell.--row-number
+      
+      tbody.grid-table__tbody
+        tr.grid-table__row(
+          v-for="rowIndex in visibleRowIndices"
+          :key="rowIndex"
+          :style="{ height: `${computedRowHeights[rowIndex] || defaultRowHeight}px` }"
+        )
+          th.grid-table__cell.grid-table__cell.--row-number {{ rowIndex + 1 }}
+    
+    // メインデータテーブル（完全なテーブル構造）- 最後に描画
     table.grid-table__table(
       :style="tableStyle"
     )
@@ -17,53 +60,31 @@ div.grid-table(
           :style="{ width: `${computedColWidths[colIndex] || defaultColWidth}px` }"
         )
         col.grid-table__empty-col-right(:style="{ width: `${rightEmptyWidth}px` }")
-      thead
+      
+      thead.grid-table__thead
         tr.grid-table__header-row
-          th.grid-table__header-cell.grid-table__header-cell--row-number
+          th.grid-table__header-cell.grid-table__header-cell.--row-number
           th.grid-table__empty-cell
           th.grid-table__header-cell(
             v-for="colIndex in visibleColIndices"
             :key="colIndex"
           ) {{ getColumnHeader(colIndex) }}
           th.grid-table__empty-cell
-      tbody
-        // 上側空行
-        tr.grid-table__empty-row(
-          :style="{ height: `${topEmptyHeight}px` }"
-        )
-          th.grid-table__empty-cell
-          td.grid-table__empty-cell
-          td.grid-table__empty-cell(
-            v-for="colIndex in visibleColIndices"
-            :key="colIndex"
-          )
-          td.grid-table__empty-cell
-        
+      
+      tbody.grid-table__tbody
         // データ行
         tr.grid-table__row(
           v-for="(rowIndex, i) in visibleRowIndices"
           :key="rowIndex"
           :style="{ height: `${computedRowHeights[rowIndex] || defaultRowHeight}px` }"
         )
-          th.grid-table__cell.grid-table__cell--row-number {{ rowIndex + 1 }}
+          th.grid-table__cell.grid-table__cell.--row-number {{ rowIndex + 1 }}
           td.grid-table__empty-cell
           td.grid-table__cell(
             v-for="colIndex in visibleColIndices"
             :key="colIndex"
             @click="handleCellClick(rowIndex, colIndex)"
           ) {{ getCellValue(rowIndex, colIndex) }}
-          td.grid-table__empty-cell
-        
-        // 下側空行
-        tr.grid-table__empty-row(
-          :style="{ height: `${bottomEmptyHeight}px` }"
-        )
-          th.grid-table__empty-cell
-          td.grid-table__empty-cell
-          td.grid-table__empty-cell(
-            v-for="colIndex in visibleColIndices"
-            :key="colIndex"
-          )
           td.grid-table__empty-cell
 
   // 選択範囲表示（複数セル選択時）
@@ -154,6 +175,13 @@ const {
   virtualState,
   visibleRowIndices,
   visibleColIndices,
+  containerStyle,
+  totalTableWidth,
+  headersTableStyle,
+  rowNumbersTableStyle,
+  tableStyle,
+  leftEmptyWidth,
+  rightEmptyWidth,
   scrollToCell,
   ensureCellVisible,
   getCellPosition
@@ -194,7 +222,6 @@ const {
   rowNumberColWidth: props.rowNumberColWidth
 })
 
-
 // セルクリックハンドラー
 const handleCellClick = (rowIndex: number, colIndex: number) => {
   selectCell({ row: rowIndex, col: colIndex })
@@ -208,95 +235,58 @@ const getColumnHeader = (colIndex: number) => {
 const getCellValue = (rowIndex: number, colIndex: number) => {
   return displayData.value[rowIndex]?.[colIndex] || ''
 }
-
-// 仮想スクロール用のスタイル計算
-const containerStyle = computed(() => ({
-  height: `${props.viewportHeight}px`,
-  width: `${props.viewportWidth}px`,
-  overflow: 'auto' as const
-}))
-
-// テーブル全体の固定幅計算
-const totalTableWidth = computed(() => {
-  const totalColWidth = computedColWidths.value.reduce((sum, width) => sum + (width || props.defaultColWidth), 0)
-  return props.rowNumberColWidth + totalColWidth
-})
-
-const tableStyle = computed(() => ({
-  marginTop: `${virtualState.value.offsetTop}px`,
-  width: `${totalTableWidth.value}px` // 常に一定の幅を保つ
-}))
-
-// 空列の幅計算
-const leftEmptyWidth = computed(() => {
-  const firstVisibleColIndex = visibleColIndices.value[0]
-  if (firstVisibleColIndex === undefined || firstVisibleColIndex <= 0) return 0
-  
-  return computedColWidths.value
-    .slice(0, firstVisibleColIndex)
-    .reduce((sum, width) => sum + (width || props.defaultColWidth), 0)
-})
-
-const rightEmptyWidth = computed(() => {
-  const visibleColumnsWidth = visibleColIndices.value
-    .reduce((sum, colIndex) => sum + (computedColWidths.value[colIndex] || props.defaultColWidth), 0)
-  
-  return Math.max(0, totalTableWidth.value - props.rowNumberColWidth - leftEmptyWidth.value - visibleColumnsWidth)
-})
-
-// 空行の高さ計算
-const topEmptyHeight = computed(() => {
-  const firstVisibleRowIndex = visibleRowIndices.value[0]
-  if (firstVisibleRowIndex === undefined || firstVisibleRowIndex <= 0) return 0
-  
-  return computedRowHeights.value
-    .slice(0, firstVisibleRowIndex)
-    .reduce((sum, height) => sum + (height || props.defaultRowHeight), 0)
-})
-
-const bottomEmptyHeight = computed(() => {
-  const lastVisibleRowIndex = visibleRowIndices.value[visibleRowIndices.value.length - 1]
-  if (lastVisibleRowIndex === undefined || lastVisibleRowIndex >= rowCount.value - 1) return 0
-  
-  return computedRowHeights.value
-    .slice(lastVisibleRowIndex + 1)
-    .reduce((sum, height) => sum + (height || props.defaultRowHeight), 0)
-})
-
-
 </script>
 
 <style lang="sass" scoped>
 .grid-table
-  position: relative
   border: 1px solid #d1d5db
   font-family: 'SourceHanCode', 'Consolas', 'Monaco', 'Courier New', monospace
   outline: none
-  // スムーズスクロール最適化
   overflow: auto
-  scroll-behavior: smooth
-  -webkit-overflow-scrolling: touch
-  will-change: scroll-position
-  // より滑らかなスクロールのための最適化
-  scrollbar-width: thin
   overscroll-behavior: contain
+  position: relative
+  scroll-behavior: smooth
+  scrollbar-width: thin
+  will-change: scroll-position
+  -webkit-overflow-scrolling: touch
 
 .grid-table__content
-  position: relative
+  height: 100%
   pointer-events: none
+  position: relative
+  width: 100%
 
+.grid-table__row-numbers,
+.grid-table__headers,
 .grid-table__table
-  pointer-events: auto
+  backface-visibility: hidden
   border-collapse: separate
   border-spacing: 0
-  table-layout: fixed  // col幅を確実に適用するためfixedに戻す
-  // 幅は JavaScript で固定値を設定（max-content を削除）
-  // GPU加速でレンダリング最適化
+  pointer-events: auto
+  table-layout: fixed
   transform: translateZ(0)
-  backface-visibility: hidden
   will-change: auto
 
-.grid-table__table thead
+.grid-table__headers
+  left: 0
+  position: absolute
+  top: 0
+  z-index: 20
+
+.grid-table__row-numbers
+  left: 0
+  position: absolute
+  top: 0
+  z-index: 15
+
+.grid-table__table
+  left: 0
+  position: absolute
+  top: 0
+  z-index: 5
+
+// Table header styles
+.grid-table__thead
   background-color: #f8f9fa
   position: sticky
   top: 0
@@ -304,110 +294,84 @@ const bottomEmptyHeight = computed(() => {
 
 .grid-table__header-cell
   background-color: #f8f9fa
-  border-right: 1px solid #d1d5db
   border-bottom: 1px solid #d1d5db
+  border-right: 1px solid #d1d5db
   box-sizing: border-box
   color: #374151
   font-size: 14px
   font-weight: 600
+  height: 24px
   line-height: 1.2
   margin: 0
-  padding: 2px 4px
-  white-space: nowrap
   overflow: hidden
+  padding: 2px 4px
   text-align: center
-  vertical-align: middle
   user-select: none
-  height: 24px
+  vertical-align: middle
+  white-space: nowrap
 
 .grid-table__header-cell:first-child
   border-left: none
 
 .grid-table__row-number-col
-  width: 50px
   min-width: 50px
+  width: 50px
 
-// 行番号列のsticky固定
-.grid-table__header-cell--row-number,
-.grid-table__cell--row-number
-  position: sticky !important
-  left: 0 !important
-  z-index: 5
+// Row number column sticky positioning
+.grid-table__header-cell.--row-number,
+.grid-table__cell.--row-number
   background-color: #f8f9fa
   border-right: 1px solid #d1d5db
-  
-// ヘッダーの行番号セルは最上位（ヘッダーより上）
-.grid-table__header-cell--row-number
+  font-weight: 600
+  left: 0 !important
+  position: sticky !important
+  text-align: center
+  z-index: 5
+
+// Header row number cell on top (above header)
+.grid-table__header-cell.--row-number
   z-index: 15
 
-// より具体的なセレクタでの強制適用
-tbody th.grid-table__cell--row-number
-  position: sticky !important
-  left: 0 !important
-  z-index: 5
-  background-color: #f8f9fa !important
-  font-weight: 600
-  text-align: center
-
-// 行番号セルのhover効果を無効化
-tbody th.grid-table__cell--row-number:hover
-  background-color: #f8f9fa !important
-
-.grid-table__empty-col-left, .grid-table__empty-col-right
-  // 幅は動的にインラインスタイルで設定されるため、CSS固定値は削除
+.grid-table__empty-col-left, 
+.grid-table__empty-col-right
   min-width: 0
 
 .grid-table__empty-cell
-  padding: 0
-  border: none
   background: transparent
-  // 空列の幅を確保するため
-  min-width: inherit
-  width: inherit    // col要素の幅を強制継承
+  border: none
   box-sizing: border-box
-
-.grid-table__empty-row
-  height: 0
-  min-height: 0
-  
-.grid-table__empty-row .grid-table__empty-cell
+  min-width: inherit
   padding: 0
-  border: none
-  background: transparent
-  height: inherit
+  width: inherit
 
-.grid-table__table tbody
+.grid-table__tbody
   background-color: #ffffff
-
-// 行の高さ設定
-.grid-table__row
-  // 高さはインラインスタイルで指定
 
 .grid-table__row:hover
   background-color: #f8f9fa
 
 .grid-table__cell
   background-color: #ffffff
-  border-right: 1px solid #d1d5db
   border-bottom: 1px solid #d1d5db
+  border-right: 1px solid #d1d5db
   box-sizing: border-box
   color: #374151
+  cursor: pointer
   font-size: 14px
   line-height: 1.2
   margin: 0
+  overflow: hidden
   padding: 2px 4px
   position: relative
-  white-space: nowrap
-  overflow: hidden
   transition: background-color 0.1s ease-in-out
   user-select: none
   vertical-align: top
-  cursor: pointer
+  white-space: nowrap
 
 .grid-table__cell:first-child
   border-left: none
-  text-align: right
   cursor: default
+  text-align: right
 
 .grid-table__cell:hover
   background-color: #f8f9fa
