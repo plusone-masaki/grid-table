@@ -35,10 +35,6 @@ div.grid-table(
       colgroup
         col.grid-table__row-number-col
       
-      thead.grid-table__thead
-        tr.grid-table__header-row
-          th.grid-table__header-cell.grid-table__header-cell.--row-number
-      
       tbody.grid-table__tbody
         tr.grid-table__row(
           v-for="rowIndex in visibleRowIndices"
@@ -269,13 +265,13 @@ const getCellValue = (rowIndex: number, colIndex: number) => {
 
 .grid-table__headers
   left: 0
-  position: absolute
+  position: sticky
   top: 0
   z-index: 20
 
 .grid-table__row-numbers
   left: 0
-  position: absolute
+  position: sticky
   top: 0
   z-index: 15
 

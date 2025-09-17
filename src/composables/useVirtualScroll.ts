@@ -548,12 +548,10 @@ export function useVirtualScroll(options: VirtualScrollOptions) {
   }))
 
   const rowNumbersTableStyle = computed(() => ({
-    width: `${rowNumberColWidth}px`,
-    marginTop: `${virtualState.value.offsetTop}px`
+    width: `${rowNumberColWidth}px`
   }))
 
   const tableStyle = computed(() => ({
-    marginTop: `${virtualState.value.offsetTop}px`,
     width: `${totalTableWidth.value}px`
   }))
 

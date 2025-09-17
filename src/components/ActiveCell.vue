@@ -145,7 +145,7 @@ const activeCellStyle = computed(() => ({
   width: `${props.position.width}px`,
   height: `${props.position.height + 1}px`,
   pointerEvents: props.editing ? 'auto' : 'none',
-  zIndex: 10,
+  zIndex: 8,
 }))
 </script>
 

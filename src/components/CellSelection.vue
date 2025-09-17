@@ -38,5 +38,5 @@ const selectionStyle = computed(() => ({
   box-sizing: border-box
   outline: none
   pointer-events: none
-  z-index: 50
+  z-index: 10
 </style>
