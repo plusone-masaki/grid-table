@@ -18,21 +18,29 @@
 ```
 
 ## 3. Virtualization Strategy
-- Rows: compute `rowWindow` from `scrollTop`, dividing by `rowHeight` (uniform for phase 1).
-- Columns: support variable widths by precomputing cumulative offsets (`prefixWidths`). Determine `columnWindow` by binary searching the prefix array against `scrollLeft` and viewport width.
+- Rows: consume the computed row height from `useRowMetrics`. Divide `scrollTop` by this value to derive row indices.
+- Columns: resolve preset or explicit column definitions before generating metrics. When using presets, derive column keys from the header row (`'headers'`) or the first data row (`'alpha'` / `'numeric'`), then compute cumulative widths and offsets. Determine `columnWindow` by binary searching the offsets array against `scrollLeft` and viewport width.
 - Apply overscan to reduce blanking during fast scrolls while clamping to dataset bounds.
-- Maintain `contentHeight = totalRows * rowHeight` and `contentWidth = sum(columnWidths)`.
-- Use CSS transform (`translateY`, `translateX`) to position visible slice relative to total scroll offset; horizontal translate uses the accumulated width up to `columnWindow.start`.
+- Maintain `contentHeight = totalRows * rowMetrics.height` and `contentWidth = columnMetrics.at(-1)?.offset + columnMetrics.at(-1)?.width ?? 0`.
+- Use CSS transform (`translateY`, `translateX`) to position visible slice relative to total scroll offset; horizontal translate uses the accumulated offset up to `columnWindow.start`.
 - Store the last render's window; only re-render when window indices change.
 - For frozen columns, render them in a separate layer within the same row to prevent unnecessary reflow.
 
-## 4. Hooks & Utilities
-- `useVirtualization({ totalRows, totalColumns, rowHeight, columnWidths, defaultColumnWidth, overscan })`
-  - Returns `{ rowWindow, columnWindow, columnOffsets, contentSize, onScroll, scrollTo }`.
+- `useColumnPreset({ headerType, data, frozenColumnCount })`
+  - Normalises the `headerType` preset into resolved column descriptors, extracts the header row when using `'headers'`, and applies the `frozenColumnCount` fallback.
+- `useColumnMetrics({ columns, data })`
+  - Measures header content synchronously, samples the first `sampleRowCount` rows for body content, clamps widths within `[MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH]`, and returns `ComputedColumnMetrics[]`.
+  - Exposes `isMeasuring` flag so the renderer can show interim placeholder widths.
+- `useRowMetrics({ columns, data })`
+  - Evaluates typography heuristics (maximum line length, presence of multi-byte characters) across headers and sample rows to determine a uniform row height within `[MIN_ROW_HEIGHT, MAX_ROW_HEIGHT]`.
+  - Returns `{ height, isMeasuring }`.
+- `useVirtualization({ totalRows, totalColumns, rowMetrics, columnMetrics, overscan })`
+  - Returns `{ rowWindow, columnWindow, columnMetrics, rowMetrics, contentSize, onScroll, scrollTo }`.
   - `onScroll` throttled with `requestAnimationFrame`.
   - Handles clamping (0 ≤ start ≤ end ≤ total).
 - `useResizeObserver(ref, handler)` Monitor container size to re-evaluate visible counts.
 - Utility `clampWindow(start, count, total)` for bounds checking, covered by unit tests.
+- Utility `binarySearchOffset(offsets, value)` to resolve column indices from cumulative offsets.
 
 ## 5. Scroll Synchronization
 - Scroll container uses native scrollbars; `onScroll` updates virtualization state.
@@ -41,14 +49,14 @@
 
 ## 6. Styling & Layout
 - Root container establishes a CSS grid: fixed header row, flexible body row.
-- Body adopts `overflow: auto`.
+- Body adopts `overflow: auto` and stretches to fill the available height supplied by the parent container.
 - Inner body uses `position: relative` with `height`/`width` sized to full content (`contentHeight`, `contentWidth`) to ensure scrollbar fidelity.
 - Each `GridRow` uses `display: flex` to minimize DOM depth; cells share class names for styling.
 - Provide CSS variables: `--grid-row-height` and optional `--grid-default-column-width`; per-column widths apply inline styles or data attributes for frozen columns.
 
 ## 7. Keyboard Handling
 - Attach keydown listener to scroll container.
-- Map keys to `scrollTop`/`scrollLeft` adjustments (arrow keys: ±rowHeight / current column width, PgUp/PgDn: viewportHeight/width).
+- Map keys to `scrollTop`/`scrollLeft` adjustments (arrow keys: ±rowMetrics.height / current column width, PgUp/PgDn: viewportHeight/width).
 - Prevent default behaviour when custom scroll applied to avoid double movement.
 - Wrap handler in `useCallback` and memoize dependencies.
 
@@ -62,10 +70,24 @@
   - window calculations for various scroll offsets,
   - overscan clamping,
   - frozen column segmentation.
+- Unit tests for `useColumnMetrics`:
+  - header/body measurement fallback when content is shorter than minimum width,
+  - extreme cases with very long text or very narrow content ensuring clamping works,
+  - stability when dataset updates without altering column definitions.
+- Unit tests for `useRowMetrics`:
+  - datasets with varying character widths (ASCII / CJK) produce expected height within bounds,
+  - extremely long strings increase height while respecting `MAX_ROW_HEIGHT`,
+  - empty dataset returns baseline height.
+- Unit tests for column presets:
+  - `'alpha'` / `'numeric'` generate deterministic labels even as dataset shape changes,
+  - `'headers'` extracts labels from `data[0]`, drops the first row from the rendered body, and falls back to alphabetical labels for blank cells,
+  - explicit column definitions bypass the preset logic and honour pre-set `isFrozen` flags.
 - Integration tests via React Testing Library:
   - Render 10,000-row dataset and assert only visible rows exist in DOM,
   - Simulate scroll event and verify window updates, `onViewportChange` invocation,
-  - Keyboard navigation adjusts scroll offsets.
+  - Keyboard navigation adjusts scroll offsets,
+  - Extremely wide column content still renders without horizontal gaps (validating virtualization + metrics coupling),
+  - Switching between presets at runtime updates headers without unmounting the grid.
 - Visual regression (future): use Playwright screenshot tests for scroll continuity.
 
 ## 10. Performance Budget & Instrumentation
@@ -75,7 +97,7 @@
 
 ## 11. Deliverables
 - Components: `GridTable`, `GridHeaderRow`, `GridBody`, `GridRow`, `GridCell`.
-- Hooks: `useVirtualization`, `useResizeObserver`.
-- Types: `GridDataset`, `GridRow`, `GridColumnDefinition`, `ViewportRange`.
+- Hooks: `useColumnPreset`, `useColumnMetrics`, `useRowMetrics`, `useVirtualization`, `useResizeObserver`.
+- Types (stored under `src/types/grid.ts`): `GridDataset`, `GridRow`, `ComputedColumnMetrics`, `ComputedRowMetrics`, `ViewportRange`, `ColumnPreset`, `GridTableProps`.
 - Demo page under `src/App.tsx` or Storybook entry showing million-row rendering.
 - Test suite under `src/__tests__/` verifying virtualization logic.
