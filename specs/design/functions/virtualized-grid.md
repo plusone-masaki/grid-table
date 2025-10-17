@@ -59,6 +59,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 - Cell content placeholders are shown immediately; cell value retrieval must be synchronous in phase 1.
 - Headers (top and left) remain in sync with scrolling and are virtualized if needed.
 - Frozen columns (if `isFrozen`) remain fixed while the rest of the grid scrolls horizontally.
+ - 先頭列に行番号を常時表示する。行番号列は凍結扱いで左端に固定し、ビューポート内の行インデックス（1 始まり）を表示する。
 - Header presets operate as follows:
   - `'alpha'`: header labels follow spreadsheet-style alphabetical increments.
   - `'numeric'`: header labels increment numerically.
@@ -83,6 +84,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 - Computed metrics are cached and diffed to avoid unnecessary renders, and shared with virtualization logic.
 - When asynchronous measurement is required (e.g., font loading), placeholders use interim baseline metrics until measurement resolves.
 - For `'headers'`, metrics leverage the extracted header row alongside body samples to ensure consistent sizing.
+- 行番号列の幅は行数に応じた文字幅を内部で算出し、常に可視化する（横スクロールしても消えない）。
 
 ### 6.5 Accessibility
 - The grid container uses ARIA roles (`role="grid"`) and exposes visible row/column counts via `aria-rowcount` and `aria-colcount`.

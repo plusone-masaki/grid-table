@@ -20,6 +20,7 @@
 ## 3. Virtualization Strategy
 - Rows: consume the computed row height from `useRowMetrics`. Divide `scrollTop` by this value to derive row indices.
 - Columns: resolve preset or explicit column definitions before generating metrics. When using presets, derive column keys from the header row (`'headers'`) or the first data row (`'alpha'` / `'numeric'`), then compute cumulative widths and offsets. Determine `columnWindow` by binary searching the offsets array against `scrollLeft` and viewport width.
+  - 行番号列は別途メトリクスを算出し、常に可視・凍結状態とする。水平スクロールの対象はデータ列のみで、行番号列は sticky で左端に貼り付ける。
 - Apply overscan to reduce blanking during fast scrolls while clamping to dataset bounds.
 - Maintain `contentHeight = totalRows * rowMetrics.height` and `contentWidth = columnMetrics.at(-1)?.offset + columnMetrics.at(-1)?.width ?? 0`.
 - Use CSS transform (`translateY`, `translateX`) to position visible slice relative to total scroll offset; horizontal translate uses the accumulated offset up to `columnWindow.start`.
@@ -27,7 +28,7 @@
 - For frozen columns, render them in a separate layer within the same row to prevent unnecessary reflow.
 
 - `useColumnPreset({ headerType, data, frozenColumnCount })`
-  - Normalises the `headerType` preset into resolved column descriptors, extracts the header row when using `'headers'`, and applies the `frozenColumnCount` fallback.
+  - Normalises the `headerType` preset into resolved column descriptors, extracts the header row when using `'headers'`, applies the `frozenColumnCount` fallback、かつ行番号列を自動追加する。
 - `useColumnMetrics({ columns, data })`
   - Measures header content synchronously, samples the first `sampleRowCount` rows for body content, clamps widths within `[MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH]`, and returns `ComputedColumnMetrics[]`.
   - Exposes `isMeasuring` flag so the renderer can show interim placeholder widths.
@@ -101,3 +102,7 @@
 - Types (stored under `src/types/grid.ts`): `GridDataset`, `GridRow`, `ComputedColumnMetrics`, `ComputedRowMetrics`, `ViewportRange`, `ColumnPreset`, `GridTableProps`.
 - Demo page under `src/App.tsx` or Storybook entry showing million-row rendering.
 - Test suite under `src/__tests__/` verifying virtualization logic.
+
+## Coding Standards
+
+- CSS プロパティはアルファベット順に並べること。
