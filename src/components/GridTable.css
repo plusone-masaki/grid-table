@@ -40,7 +40,6 @@
 
 .grid-table__table thead th {
   background-color: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
   font-weight: 600;
   height: 24px;
@@ -56,16 +55,6 @@
   border-right: 1px solid #e2e8f0;
   padding: 0 12px;
   white-space: nowrap;
-}
-
-.grid-table__table tr:last-of-type td,
-.grid-table__table tr:last-of-type th {
-  border-bottom: none;
-}
-
-.grid-table__table tr td:last-of-type,
-.grid-table__table tr th:last-of-type {
-  border-right: none;
 }
 
 .grid-table__row-index-cell {
