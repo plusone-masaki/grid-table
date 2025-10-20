@@ -10,7 +10,7 @@ import {
   type GridRow,
   type GridTableProps,
   type OverscanConfig,
-} from '../types/grid'
+} from 'types/grid'
 import './GridTable.css'
 
 type ResolvedColumn = ColumnMetricsInput
@@ -140,10 +140,9 @@ export const GridTable = ({
     1,
     bodyRows.length > 0 ? String(bodyRows.length).length : 1,
   )
-  const rowIndexWidth = Math.max(
-    MIN_ROW_INDEX_WIDTH,
-    rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING,
-  )
+  const rowIndexMeasuredWidth =
+    rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING
+  const rowIndexWidth = Math.max(MIN_ROW_INDEX_WIDTH, rowIndexMeasuredWidth)
 
   const visibleColumns = useMemo(
     () => resolvedColumns.slice(range.columnStart, range.columnEnd),
@@ -168,8 +167,7 @@ export const GridTable = ({
   const renderRows = hasVisibleRows ? visibleRows : bodyRows
   const renderRowStartIndex = hasVisibleRows ? range.rowStart : 0
   const offsetLeft = hasVisibleColumns ? range.offsetLeft : 0
-  const horizontalOffset = hasVisibleColumns ? offsetLeft : 0
-  const spacerColumnWidth = horizontalOffset
+  const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
 
   const spacerStyle = {
     width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
@@ -183,7 +181,8 @@ export const GridTable = ({
   }
 
   const topSpacerHeight = hasVisibleRows ? range.offsetTop : 0
-  const renderedRowsHeight = renderRows.length * rowMetrics.height
+  const renderedRowCount = renderRows.length
+  const renderedRowsHeight = renderedRowCount * rowMetrics.height
   const bottomSpacerHeight = Math.max(
     contentHeight - topSpacerHeight - renderedRowsHeight,
     0,
@@ -215,19 +214,26 @@ export const GridTable = ({
           <div className="grid-table__spacer" style={spacerStyle}>
             <table className="grid-table__table" style={tableStyle}>
               <colgroup>
-                <col style={{ minWidth: rowIndexWidth, width: rowIndexWidth }} />
+                <col
+                  style={{
+                    width: rowIndexWidth,
+                    minWidth: rowIndexWidth,
+                    maxWidth: rowIndexWidth,
+                  }}
+                />
                 {spacerColumnWidth > 0 && (
                   <col
                     style={{
-                      minWidth: spacerColumnWidth,
                       width: spacerColumnWidth,
+                      minWidth: spacerColumnWidth,
+                      maxWidth: spacerColumnWidth,
                     }}
                   />
                 )}
                 {renderColumnMetrics.map((metric) => (
                   <col
                     key={`col-${metric.id}`}
-                    style={{ minWidth: metric.width, width: metric.width }}
+                    style={{ width: metric.width, minWidth: metric.width }}
                   />
                 ))}
               </colgroup>
@@ -236,6 +242,11 @@ export const GridTable = ({
                   <th
                     role="columnheader"
                     className="grid-table__row-index-cell grid-table__row-index-header"
+                    style={{
+                      width: rowIndexWidth,
+                      minWidth: rowIndexWidth,
+                      maxWidth: rowIndexWidth,
+                    }}
                   />
                   {spacerColumnWidth > 0 && (
                     <th
@@ -285,6 +296,11 @@ export const GridTable = ({
                         <th
                           role="gridcell"
                           className="grid-table__row-index-cell"
+                          style={{
+                            width: rowIndexWidth,
+                            minWidth: rowIndexWidth,
+                            maxWidth: rowIndexWidth,
+                          }}
                         >
                           {renderRowStartIndex + rowIndex + 1}
                         </th>
