@@ -1,14 +1,14 @@
 import { ChangeEvent, useEffect, useMemo, useState } from 'react'
-import GridTable from './components/GridTable'
 import {
   type ColumnPreset,
   type GridDataset,
   type GridRow,
-} from './types/grid'
+} from 'types/grid'
+import GridTable from './components/GridTable'
 import './App.css'
 
 const DEFAULT_ROW_COUNT = 120
-const DEFAULT_COLUMN_COUNT = 12
+const DEFAULT_COLUMN_COUNT = 60
 const MAX_ROW_COUNT = 10000
 const MAX_COLUMN_COUNT = 200
 const MIN_ROW_COUNT = 0
