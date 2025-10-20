@@ -31,71 +31,68 @@
   width: 100%;
 }
 
-.grid-table__header-table,
-.grid-table__inner-table,
-.grid-table__row-index {
+.grid-table__table {
+  background-color: #fff;
   border-collapse: collapse;
   position: absolute;
-}
-
-.grid-table__header-table {
-  background-color: #fff;
   width: max-content;
-  z-index: 6;
 }
 
-.grid-table__row-index {
-  background-color: #fff;
-  border-right: 1px solid #e2e8f0;
-  width: max-content;
-  z-index: 5;
-}
-
-.grid-table__inner-table {
-  width: max-content;
-  z-index: 4;
-}
-
-.grid-table__header-table th {
+.grid-table__table thead th {
   background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
   font-weight: 600;
   height: 24px;
   line-height: 24px;
+  position: sticky;
   text-align: center;
+  top: 0;
 }
 
-.grid-table__row-index td,
-.grid-table__row-index th {
-  border-bottom: 1px solid #e2e8f0;
-  padding: 0 12px;
-  text-align: right;
-  white-space: nowrap;
-}
-
-.grid-table__row-index th {
-  background-color: #f1f5f9;
-  font-weight: 600;
-  height: 24px;
-  line-height: 24px;
-}
-
-.grid-table__inner-table td {
-  background-color: #fff;
+.grid-table__table th,
+.grid-table__table td {
   border-bottom: 1px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;
   padding: 0 12px;
   white-space: nowrap;
 }
 
-.grid-table__inner-table tr:last-of-type td {
+.grid-table__table tr:last-of-type td,
+.grid-table__table tr:last-of-type th {
   border-bottom: none;
 }
 
-.grid-table__inner-table tr td:last-of-type {
+.grid-table__table tr td:last-of-type,
+.grid-table__table tr th:last-of-type {
   border-right: none;
 }
 
-.grid-table__corner-cell {
+.grid-table__row-index-cell {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  left: 0;
+  position: sticky;
   text-align: right;
+}
+
+.grid-table__row-index-header {
+  top: 0;
+  z-index: 5;
+}
+
+.grid-table__table tbody td {
+  background-color: #fff;
+}
+
+.grid-table__column-spacer {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.grid-table__row-spacer td {
+  background-color: transparent;
+  border: none;
+  padding: 0;
 }
