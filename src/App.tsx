@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, useMemo, useState } from 'react'
 import {
   type ColumnPreset,
   type GridDataset,
@@ -79,15 +79,8 @@ const createDataset = (
 const App = () => {
   const [rowCount, setRowCount] = useState(DEFAULT_ROW_COUNT)
   const [columnCount, setColumnCount] = useState(DEFAULT_COLUMN_COUNT)
-  const [frozenColumns, setFrozenColumns] = useState(1)
   const [headerType, setHeaderType] = useState<HeaderType>('alpha')
   const [datasetVariant, setDatasetVariant] = useState<DatasetVariant>('numbers')
-
-  useEffect(() => {
-    setFrozenColumns((current) =>
-      clampNumber(current, 0, clampNumber(columnCount, MIN_COLUMN_COUNT, MAX_COLUMN_COUNT)),
-    )
-  }, [columnCount])
 
   const data = useMemo(
     () =>
@@ -174,31 +167,12 @@ const App = () => {
               </select>
             </label>
           </div>
-
-          <div className="control-group">
-            <h2>表示設定</h2>
-            <label>
-              凍結列数
-              <input
-                min={0}
-                max={MAX_COLUMN_COUNT}
-                type="number"
-                value={frozenColumns}
-                onChange={(event) =>
-                  setFrozenColumns(
-                    clampNumber(normalizeNumberInput(event, 1), 0, columnCount),
-                  )
-                }
-              />
-            </label>
-          </div>
         </aside>
 
         <section className="app__preview" aria-label="Grid プレビュー">
           <GridTable
             headerType={headerType}
             data={data}
-            frozenColumnCount={frozenColumns}
             style={{ height: '100%' }}
           />
         </section>

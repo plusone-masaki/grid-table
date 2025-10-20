@@ -29,8 +29,6 @@ The project aims to deliver a high-performance React + TypeScript grid table com
     - `'alpha'`: auto-generate headers A, B, C…
     - `'numeric'`: auto-generate headers 1, 2, 3…
     - `'headers'`: consume `data[0]` as the header row. The row is excluded from the rendered body; empty header cells fall back to alphabetical labels.
-- `frozenColumnCount?: number`
-  - Number of leading columns to freeze when using presets.
 - `overscan?: { rows?: number; columns?: number }` (default: 5 rows, 2 columns)
 - `onViewportChange?: (viewport: ViewportRange) => void`
 - `initialScrollPosition?: { top?: number; left?: number }`
@@ -58,8 +56,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 - The scrollable viewport stretches to the height supplied by the parent container; the component itself does not enforce a fixed pixel height.
 - Cell content placeholders are shown immediately; cell value retrieval must be synchronous in phase 1.
 - Headers (top and left) remain in sync with scrolling and are virtualized if needed.
-- Frozen columns (if `isFrozen`) remain fixed while the rest of the grid scrolls horizontally.
- - 先頭列に行番号を常時表示する。行番号列は凍結扱いで左端に固定し、ビューポート内の行インデックス（1 始まり）を表示する。
+- 先頭列に行番号を常時表示する。行番号列は凍結扱いで左端に固定し、ビューポート内の行インデックス（1 始まり）を表示する。
 - Header presets operate as follows:
   - `'alpha'`: header labels follow spreadsheet-style alphabetical increments.
   - `'numeric'`: header labels increment numerically.
@@ -117,7 +114,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 1. Demo page renders 1,000,000 rows × 100 columns without exceeding 200 ms initial load.
 2. Scroll interactions produce no white gaps or visible reflow jank.
 3. `onViewportChange` emits accurate indices consistent with rendered cells.
-4. Storybook or sandbox example demonstrates horizontal + vertical virtualization, frozen column, keyboard navigation.
+4. Storybook or sandbox example demonstrates horizontal + vertical virtualization（行番号列の固定表示を含む）、およびキーボードナビゲーション。
 5. Auto column width measurement handles heterogeneous content, including extreme wide/narrow values, without breaking viewport calculations.
 6. Row height measurement adapts to text-heavy datasets without clipping or excessive whitespace.
 7. Column presets (`'alpha'`, `'numeric'`, `'headers'`) behave as specified, with `'headers'` excluding the first row from the rendered body.

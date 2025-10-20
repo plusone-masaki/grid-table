@@ -41,7 +41,6 @@ export type ColumnPreset = 'alpha' | 'numeric' | 'headers'
 export interface GridTableProps {
   data: GridDataset
   headerType?: ColumnPreset
-  frozenColumnCount?: number
   overscan?: OverscanConfig
   onViewportChange?: (viewport: ViewportRange) => void
   initialScrollPosition?: Partial<ScrollPosition>

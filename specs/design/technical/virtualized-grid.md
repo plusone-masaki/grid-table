@@ -10,7 +10,7 @@
 ## 2. Component Tree
 ```
 <GridTable>
-  <GridHeaderRow> (column headers, optional freeze handling)
+  <GridHeaderRow> (column headers、行番号列は常に固定)
   <GridBodyScrollContainer>
     <GridBodyInner> (absolute positioned, renders visible rows)
       <GridRow>*
@@ -25,10 +25,10 @@
 - Maintain `contentHeight = totalRows * rowMetrics.height` and `contentWidth = columnMetrics.at(-1)?.offset + columnMetrics.at(-1)?.width ?? 0`.
 - Use CSS transform (`translateY`, `translateX`) to position visible slice relative to total scroll offset; horizontal translate uses the accumulated offset up to `columnWindow.start`.
 - Store the last render's window; only re-render when window indices change.
-- For frozen columns, render them in a separate layer within the same row to prevent unnecessary reflow.
+- 固定列は行番号列のみとし、同一レイヤー内で sticky 表示を行う。
 
-- `useColumnPreset({ headerType, data, frozenColumnCount })`
-  - Normalises the `headerType` preset into resolved column descriptors, extracts the header row when using `'headers'`, applies the `frozenColumnCount` fallback、かつ行番号列を自動追加する。
+- `useColumnPreset({ headerType, data })`
+  - Normalises the `headerType` preset into resolved column descriptors, extracts the header row when using `'headers'`、かつ行番号列を自動追加する。
 - `useColumnMetrics({ columns, data })`
   - Measures header content synchronously, samples the first `sampleRowCount` rows for body content, clamps widths within `[MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH]`, and returns `ComputedColumnMetrics[]`.
   - Exposes `isMeasuring` flag so the renderer can show interim placeholder widths.
@@ -53,7 +53,7 @@
 - Body adopts `overflow: auto` and stretches to fill the available height supplied by the parent container.
 - Inner body uses `position: relative` with `height`/`width` sized to full content (`contentHeight`, `contentWidth`) to ensure scrollbar fidelity.
 - Each `GridRow` uses `display: flex` to minimize DOM depth; cells share class names for styling.
-- Provide CSS variables: `--grid-row-height` and optional `--grid-default-column-width`; per-column widths apply inline styles or data attributes for frozen columns.
+- Provide CSS variables: `--grid-row-height` and optional `--grid-default-column-width`; 行番号列は sticky 表示用スタイルを適用する。
 
 ## 7. Keyboard Handling
 - Attach keydown listener to scroll container.
@@ -70,7 +70,7 @@
 - Unit tests for `useVirtualization`:
   - window calculations for various scroll offsets,
   - overscan clamping,
-  - frozen column segmentation.
+  - 行番号列の固定表示が維持されること。
 - Unit tests for `useColumnMetrics`:
   - header/body measurement fallback when content is shorter than minimum width,
   - extreme cases with very long text or very narrow content ensuring clamping works,

@@ -25,9 +25,6 @@ const ROW_INDEX_PADDING = 24
 const MIN_ROW_INDEX_WIDTH = 48
 const HEADER_HEIGHT = 24
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
-
 const toColumnHeader = (index: number): string => {
   let result = ''
   let num = index
@@ -79,7 +76,6 @@ const resolveHeaderLabel = (
 export const GridTable = ({
   data,
   headerType = 'alpha',
-  frozenColumnCount = 0,
   overscan,
   onViewportChange,
   className,
@@ -104,14 +100,13 @@ export const GridTable = ({
 
   const resolvedColumns: ResolvedColumn[] = useMemo(() => {
     const columnKeys = resolveColumnKeys(headerRow, bodyRows)
-    const safeFrozen = clamp(frozenColumnCount, 0, columnKeys.length)
 
     return columnKeys.map((key, index) => ({
       id: key,
       header: resolveHeaderLabel(headerType, index, key, headerRow),
-      isFrozen: index < safeFrozen,
+      isFrozen: false,
     }))
-  }, [headerType, headerRow, bodyRows, frozenColumnCount])
+  }, [headerType, headerRow, bodyRows])
 
   const columnMetrics = useColumnMetrics({
     columns: resolvedColumns,
