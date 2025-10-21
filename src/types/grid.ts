@@ -1,8 +1,8 @@
 import type { CSSProperties } from 'react'
 
-export type GridCellValue = string | number | boolean | null | undefined
+export type GridCellValue = string | number | null | undefined
 
-export type GridRow = Record<string, GridCellValue>
+export type GridRow = GridCellValue[]
 
 export type GridDataset = GridRow[]
 

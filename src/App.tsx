@@ -2,7 +2,6 @@ import { ChangeEvent, useMemo, useState } from 'react'
 import {
   type ColumnPreset,
   type GridDataset,
-  type GridRow,
 } from 'types/grid'
 import GridTable from './components/GridTable'
 import './App.css'
@@ -62,19 +61,16 @@ const createDataset = (
   columnCount: number,
   variant: DatasetVariant,
 ): GridDataset =>
-  Array.from({ length: rowCount }, (_, rowIndex) => {
-    const row: GridRow = {}
-    Array.from({ length: columnCount }, (_, columnIndex) => {
-      const columnId = `column-${columnIndex}`
-      row[columnId] = createCellValue(
+  Array.from({ length: rowCount }, (_, rowIndex) =>
+    Array.from({ length: columnCount }, (_, columnIndex) =>
+      createCellValue(
         rowIndex,
         columnIndex,
         toColumnHeader(columnIndex),
         variant,
-      )
-    })
-    return row
-  })
+      ),
+    ),
+  )
 
 const App = () => {
   const [rowCount, setRowCount] = useState(DEFAULT_ROW_COUNT)

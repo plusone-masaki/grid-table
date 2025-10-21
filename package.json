@@ -10,11 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "jquery": "^3.7.1",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "walkontable": "github:warpech/walkontable"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@types/jquery": "^3.5.33",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
