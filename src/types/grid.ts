@@ -55,6 +55,13 @@ export interface NormalizedSelectionRange {
   rightColumn: number
 }
 
+export interface SelectionRectangle {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
 export interface GridTableProps {
   data?: GridDataset
   headerType?: ColumnPreset

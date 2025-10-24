@@ -1,10 +1,13 @@
 import type { GridDataset } from 'types/grid'
+import { HEADER_HEIGHT } from '../constants/grid-table';
 
-interface GridTableRowIndexProps {
+export interface GridTableRowIndexProps {
   rows: GridDataset
   rowHeight: number
   rowIndexWidth: number
-  topSpacerHeight: number
+  spacerHeight: number
+  contentWidth: number
+  contentHeight: number
   totalRenderedColumns: number
   renderRowStartIndex: number
 }
@@ -13,54 +16,68 @@ const GridTableRowIndex = ({
   rows,
   rowHeight,
   rowIndexWidth,
-  topSpacerHeight,
+  spacerHeight,
+  contentWidth,
+  contentHeight,
   totalRenderedColumns,
   renderRowStartIndex,
 }: GridTableRowIndexProps) => (
-  <table className="grid-table__table --number">
-    <colgroup>
-      <col style={{ width: rowIndexWidth }} />
-    </colgroup>
-    <thead>
-      <tr role="row">
-        <th
-          role="columnheader"
-          className="grid-table__row-index-cell grid-table__row-index-header"
-          style={{ width: rowIndexWidth }}
-        />
-      </tr>
-    </thead>
-    <tbody>
-      {topSpacerHeight > 0 && (
-        <tr
-          aria-hidden="true"
-          className="grid-table__row-spacer"
-          role="presentation"
-        >
-          <td
-            colSpan={totalRenderedColumns}
-            role="presentation"
-            style={{ height: `${topSpacerHeight}px` }}
+  <div
+    className="grid-table__spacer"
+    style={{
+      width: contentWidth
+        ? `${contentWidth + rowIndexWidth}px`
+        : '100%',
+      height: contentHeight
+        ? `${contentHeight + HEADER_HEIGHT}px`
+        : '100%',
+    }}
+  >
+    <table className="grid-table__table --number">
+      <colgroup>
+        <col style={{ width: rowIndexWidth }} />
+      </colgroup>
+      <thead>
+        <tr role="row">
+          <th
+            role="columnheader"
+            className="grid-table__row-index-cell grid-table__row-index-header"
+            style={{ width: rowIndexWidth }}
           />
         </tr>
-      )}
-      {rows.map((_, rowIndex) => (
-        <tr
-          key={`row-${renderRowStartIndex + rowIndex}`}
-          role="row"
-          style={{ height: `${rowHeight}px` }}
-        >
-          <th
-            role="gridcell"
-            className="grid-table__row-index-cell"
-            style={{ width: rowIndexWidth }}
+      </thead>
+      <tbody>
+        {spacerHeight > 0 && (
+          <tr
+            aria-hidden="true"
+            className="grid-table__row-spacer"
+            role="presentation"
           >
-            {renderRowStartIndex + rowIndex + 1}
-          </th>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+            <td
+              colSpan={totalRenderedColumns}
+              role="presentation"
+              style={{ height: `${spacerHeight}px` }}
+            />
+          </tr>
+        )}
+        {rows.map((_, rowIndex) => (
+          <tr
+            key={`row-${renderRowStartIndex + rowIndex}`}
+            role="row"
+            style={{ height: `${rowHeight}px` }}
+          >
+            <th
+              role="gridcell"
+              className="grid-table__row-index-cell"
+              style={{ width: rowIndexWidth }}
+            >
+              {renderRowStartIndex + rowIndex + 1}
+            </th>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
 )
 
 export default GridTableRowIndex

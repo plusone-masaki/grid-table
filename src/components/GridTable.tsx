@@ -5,7 +5,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  ChangeEvent as ReactChangeEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import useColumnMetrics, {
   type ColumnDefinitionInput as ColumnMetricsInput,
 } from '../hooks/useColumnMetrics'
@@ -19,6 +22,7 @@ import {
   type GridTableProps,
   type NormalizedSelectionRange,
   type SelectionRange,
+  type SelectionRectangle,
 } from 'types/grid'
 import {
   DEFAULT_OVERSCAN,
@@ -33,6 +37,8 @@ import GridTableHeader from './GridTableHeader'
 import GridTableRowIndex from './GridTableRowIndex'
 import CellSelection from './CellSelection'
 import './GridTable.css'
+
+const SELECTION_BORDER_OFFSET = 1
 
 type ResolvedColumn = ColumnMetricsInput
 
@@ -97,11 +103,31 @@ export const GridTable = ({
   style,
 }: GridTableProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const data = rawData.length === 0 ? EMPTY_DATASET_FALLBACK : rawData
-  const isFallbackData = rawData.length === 0
-  const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(
-    null,
-  )
+  const { headerRow, bodyRows, isFallbackDataset } = useMemo(() => {
+    if (headerType === 'headers' && rawData.length > 0) {
+      const [firstRow, ...restRows] = rawData
+      return {
+        headerRow: firstRow,
+        bodyRows: restRows,
+        isFallbackDataset: false,
+      }
+    }
+
+    if (rawData.length === 0) {
+      return {
+        headerRow: undefined,
+        bodyRows: EMPTY_DATASET_FALLBACK,
+        isFallbackDataset: true,
+      }
+    }
+
+    return {
+      headerRow: undefined,
+      bodyRows: rawData,
+      isFallbackDataset: false,
+    }
+  }, [headerType, rawData])
+  const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(null)
   const [anchorCell, setAnchorCell] = useState<CellCoordinate | null>(null)
   const [activeCell, setActiveCell] = useState<CellCoordinate | null>(null)
   const pointerStateRef = useRef<{ isSelecting: boolean; pointerId: number | null }>({
@@ -110,21 +136,6 @@ export const GridTable = ({
   })
   const anchorRef = useRef<CellCoordinate | null>(null)
   const lastFocusRef = useRef<CellCoordinate | null>(null)
-
-  const { headerRow, bodyRows } = useMemo(() => {
-    if (headerType === 'headers' && rawData.length > 0) {
-      const [firstRow, ...restRows] = rawData
-      return {
-        headerRow: firstRow,
-        bodyRows: restRows,
-      }
-    }
-
-    return {
-      headerRow: undefined,
-      bodyRows: data,
-    }
-  }, [headerType, rawData, data])
 
   const resolvedColumns: ResolvedColumn[] = useMemo(() => {
     const columnKeys = resolveColumnKeys(headerRow, bodyRows)
@@ -135,14 +146,37 @@ export const GridTable = ({
       isFrozen: false,
     }))
   }, [headerType, headerRow, bodyRows])
+  const [internalRows, setInternalRows] = useState<GridDataset>(bodyRows)
+  const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null)
+  const [editingValue, setEditingValue] = useState('')
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const previousBodyRowsRef = useRef(bodyRows)
+  useEffect(() => {
+    if (previousBodyRowsRef.current === bodyRows) {
+      return
+    }
+
+    previousBodyRowsRef.current = bodyRows
+    setInternalRows(bodyRows)
+    setEditingCell(null)
+    setEditingValue('')
+  }, [bodyRows])
+  useEffect(() => {
+    if (editingCell && editorRef.current) {
+      const textarea = editorRef.current
+      textarea.focus()
+      const length = textarea.value.length
+      textarea.setSelectionRange(length, length)
+    }
+  }, [editingCell])
 
   const columnMetrics = useColumnMetrics({
     columns: resolvedColumns,
-    data: bodyRows,
+    data: internalRows,
   })
   const rowMetrics = useRowMetrics({
     columns: resolvedColumns.map(({ id, header }) => ({ id, header })),
-    data: bodyRows,
+    data: internalRows,
   })
 
   const {
@@ -151,7 +185,7 @@ export const GridTable = ({
     contentHeight,
     handleScroll,
   } = useVirtualGrid({
-    rowCount: bodyRows.length,
+    rowCount: internalRows.length,
     columnMetrics,
     rowHeight: rowMetrics.height,
     overscan: overscan ?? DEFAULT_OVERSCAN,
@@ -160,7 +194,7 @@ export const GridTable = ({
 
   const rowIndexMaxLength = Math.max(
     1,
-    bodyRows.length > 0 ? String(bodyRows.length).length : 1,
+    internalRows.length > 0 ? String(internalRows.length).length : 1,
   )
   const rowIndexMeasuredWidth =
     rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING
@@ -177,8 +211,8 @@ export const GridTable = ({
   )
 
   const visibleRows = useMemo(
-    () => bodyRows.slice(range.rowStart, range.rowEnd),
-    [bodyRows, range.rowStart, range.rowEnd],
+    () => internalRows.slice(range.rowStart, range.rowEnd),
+    [internalRows, range.rowStart, range.rowEnd],
   )
 
   const hasVisibleColumns = visibleColumnMetrics.length > 0
@@ -188,27 +222,28 @@ export const GridTable = ({
   const renderColumnMetrics = hasVisibleColumns
     ? visibleColumnMetrics
     : columnMetrics
-  const renderRows = hasVisibleRows ? visibleRows : bodyRows
+  const renderRows = hasVisibleRows ? visibleRows : internalRows
   const renderRowStartIndex = hasVisibleRows ? range.rowStart : 0
   const renderColumnStartIndex = hasVisibleColumns ? range.columnStart : 0
   const offsetLeft = hasVisibleColumns ? range.offsetLeft : 0
   const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
 
-  const topSpacerHeight = hasVisibleRows ? range.offsetTop : 0
+  const spacerHeight = hasVisibleRows ? range.offsetTop : 0
   const renderedRowCount = renderRows.length
   const renderedRowsHeight = renderedRowCount * rowMetrics.height
   const bottomSpacerHeight = Math.max(
-    contentHeight - topSpacerHeight - renderedRowsHeight,
+    contentHeight - spacerHeight - renderedRowsHeight,
     0,
   )
+
   const totalRenderedColumns =
     1 + (spacerColumnWidth > 0 ? 1 : 0) + renderColumns.length
 
-  const rowCount = bodyRows.length
+  const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
   const selectionEnabled =
-    !isFallbackData && rowCount > 0 && columnCount > 0 && columnMetrics.length > 0
+    !isFallbackDataset && rowCount > 0 && columnMetrics.length > 0
 
   const resetSelectionState = useCallback(() => {
     setSelectionRange(null)
@@ -216,11 +251,11 @@ export const GridTable = ({
     setActiveCell(null)
     pointerStateRef.current = {
       isSelecting: false,
-    pointerId: null,
-  }
-  anchorRef.current = null
-  lastFocusRef.current = null
-}, [])
+      pointerId: null,
+    }
+    anchorRef.current = null
+    lastFocusRef.current = null
+  }, [])
 
   useEffect(() => {
     if (!selectionEnabled) {
@@ -259,18 +294,148 @@ export const GridTable = ({
       const anchorClone = cloneCellCoordinate(anchor)
       const focusClone = cloneCellCoordinate(focus)
 
-      setSelectionRange({
-        anchor: anchorClone,
-        focus: focusClone,
+      setSelectionRange((prev) => {
+        if (
+          prev &&
+          prev.anchor.rowIndex === anchorClone.rowIndex &&
+          prev.anchor.columnIndex === anchorClone.columnIndex &&
+          prev.focus.rowIndex === focusClone.rowIndex &&
+          prev.focus.columnIndex === focusClone.columnIndex
+        ) {
+          return prev
+        }
+        return {
+          anchor: anchorClone,
+          focus: focusClone,
+        }
       })
-      setAnchorCell(anchorClone)
-      setActiveCell(focusClone)
+      setAnchorCell((prev) => {
+        if (
+          prev &&
+          prev.rowIndex === anchorClone.rowIndex &&
+          prev.columnIndex === anchorClone.columnIndex
+        ) {
+          return prev
+        }
+        return anchorClone
+      })
+      setActiveCell((prev) => {
+        if (
+          prev &&
+          prev.rowIndex === focusClone.rowIndex &&
+          prev.columnIndex === focusClone.columnIndex
+        ) {
+          return prev
+        }
+        return focusClone
+      })
 
       anchorRef.current = anchorClone
       lastFocusRef.current = focusClone
     },
     [],
   )
+
+  const isEditing = editingCell !== null
+
+  const commitEditing = useCallback(
+    (
+      options?: {
+        nextSelection?: CellCoordinate | null
+        skipSelectionUpdate?: boolean
+      },
+    ) => {
+      if (!editingCell) {
+        return
+      }
+
+      const column = resolvedColumns[editingCell.columnIndex]
+      if (!column) {
+        setEditingCell(null)
+        setEditingValue('')
+        return
+      }
+
+      setInternalRows((prevRows) => {
+        const targetRow = prevRows[editingCell.rowIndex]
+        if (!targetRow) {
+          return prevRows
+        }
+
+        const currentValue = targetRow[column.id]
+        const nextValue = editingValue
+        if (String(currentValue ?? '') === nextValue) {
+          return prevRows
+        }
+
+        const nextRows = [...prevRows]
+        nextRows[editingCell.rowIndex] = {
+          ...targetRow,
+          [column.id]: nextValue,
+        }
+        return nextRows
+      })
+
+      const selectionTarget = options?.nextSelection ?? editingCell
+
+      setEditingCell(null)
+      setEditingValue('')
+
+      if (!options?.skipSelectionUpdate && selectionTarget) {
+        updateSelectionState(selectionTarget, selectionTarget)
+      }
+    },
+    [editingCell, editingValue, resolvedColumns, updateSelectionState],
+  )
+
+  const startEditing = useCallback(
+    (cell: CellCoordinate) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      const column = resolvedColumns[cell.columnIndex]
+      const row = internalRows[cell.rowIndex]
+      if (!column || !row) {
+        return
+      }
+
+      const rawValue = row[column.id]
+      const value = rawValue === null || rawValue === undefined ? '' : String(rawValue)
+
+      pointerStateRef.current = {
+        isSelecting: false,
+        pointerId: null,
+      }
+
+      updateSelectionState(cell, cell)
+      setEditingCell(cell)
+      setEditingValue(value)
+    },
+    [selectionEnabled, resolvedColumns, internalRows, updateSelectionState],
+  )
+
+  const handleCellDoubleClick = useCallback(
+    (rowIndex: number, columnIndex: number) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      startEditing({ rowIndex, columnIndex })
+    },
+    [selectionEnabled, startEditing],
+  )
+
+  const handleEditorChange = useCallback(
+    (event: ReactChangeEvent<HTMLTextAreaElement>) => {
+      setEditingValue(event.target.value)
+    },
+    [],
+  )
+
+  const handleEditorBlur = useCallback(() => {
+    commitEditing()
+  }, [commitEditing])
 
   const resolveCellFromEvent = useCallback(
     (event: ReactPointerEvent<HTMLTableCellElement>): CellCoordinate | null => {
@@ -328,6 +493,15 @@ export const GridTable = ({
         return
       }
 
+      if (isEditing) {
+        const isSameCell =
+          editingCell?.rowIndex === rowIndex &&
+          editingCell?.columnIndex === columnIndex
+        if (!isSameCell) {
+          commitEditing({ skipSelectionUpdate: true })
+        }
+      }
+
       const cell: CellCoordinate = {
         rowIndex,
         columnIndex,
@@ -351,7 +525,13 @@ export const GridTable = ({
         // 一部環境で setPointerCapture が失敗する可能性があるため握りつぶす
       }
     },
-    [selectionEnabled, updateSelectionState],
+    [
+      selectionEnabled,
+      updateSelectionState,
+      isEditing,
+      editingCell,
+      commitEditing,
+    ],
   )
 
   const handleCellPointerMove = useCallback(
@@ -425,16 +605,8 @@ export const GridTable = ({
     }
   }
 
-  const handleCellPointerUp = useCallback(
+  const finalizePointerSelection = useCallback(
     (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!selectionEnabled) {
-        return
-      }
-
-      if (!pointerStateRef.current.isSelecting) {
-        return
-      }
-
       if (
         pointerStateRef.current.pointerId !== null &&
         event.pointerId === pointerStateRef.current.pointerId
@@ -451,7 +623,18 @@ export const GridTable = ({
 
       stopPointerSelection()
     },
-    [selectionEnabled, updateSelectionState],
+    [updateSelectionState],
+  )
+
+  const handleCellPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      if (!selectionEnabled || !pointerStateRef.current.isSelecting) {
+        return
+      }
+
+      finalizePointerSelection(event)
+    },
+    [selectionEnabled, finalizePointerSelection],
   )
 
   const handleCellPointerCancel = useCallback(
@@ -460,23 +643,9 @@ export const GridTable = ({
         return
       }
 
-      if (
-        pointerStateRef.current.pointerId !== null &&
-        event.pointerId === pointerStateRef.current.pointerId
-      ) {
-        releasePointerCapture(event.currentTarget, event.pointerId)
-      }
-
-      const anchor = anchorRef.current
-      const focus = lastFocusRef.current ?? anchor
-
-      if (anchor && focus) {
-        updateSelectionState(anchor, focus)
-      }
-
-      stopPointerSelection()
+      finalizePointerSelection(event)
     },
-    [selectionEnabled, updateSelectionState],
+    [selectionEnabled, finalizePointerSelection],
   )
 
   const normalizedSelectionRange = useMemo<NormalizedSelectionRange | null>(() => {
@@ -494,7 +663,7 @@ export const GridTable = ({
     }
   }, [selectionEnabled, selectionRange])
 
-  const selectionBounds = useMemo(() => {
+  const selectionBounds = useMemo<SelectionRectangle | null>(() => {
     if (!selectionEnabled || normalizedSelectionRange === null) {
       return null
     }
@@ -509,9 +678,15 @@ export const GridTable = ({
       return null
     }
 
-    const top = Math.max(HEADER_HEIGHT + topRow * rowMetrics.height + 1, 0)
+    const top = Math.max(
+      HEADER_HEIGHT + topRow * rowMetrics.height + SELECTION_BORDER_OFFSET,
+      0,
+    )
     const height = (bottomRow - topRow + 1) * rowMetrics.height
-    const left = Math.max(rowIndexWidth + leftMetric.offset + 1, 0)
+    const left = Math.max(
+      rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET,
+      0,
+    )
     const width = rightMetric.offset + rightMetric.width - leftMetric.offset
 
     return {
@@ -528,7 +703,31 @@ export const GridTable = ({
     rowIndexWidth,
   ])
 
-  const anchorBounds = useMemo(() => {
+  const editingBounds = useMemo<SelectionRectangle | null>(() => {
+    if (!selectionEnabled || !editingCell) {
+      return null
+    }
+
+    const columnMetric = columnMetrics[editingCell.columnIndex]
+    if (!columnMetric) {
+      return null
+    }
+
+    const top = Math.max(
+      HEADER_HEIGHT + editingCell.rowIndex * rowMetrics.height,
+      0,
+    )
+    const left = Math.max(rowIndexWidth + columnMetric.offset, 0)
+
+    return {
+      top,
+      left,
+      width: columnMetric.width,
+      height: rowMetrics.height,
+    }
+  }, [selectionEnabled, editingCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+
+  const anchorBounds = useMemo<SelectionRectangle | null>(() => {
     if (!selectionEnabled || !anchorCell) {
       return null
     }
@@ -538,8 +737,14 @@ export const GridTable = ({
       return null
     }
 
-    const top = Math.max(HEADER_HEIGHT + anchorCell.rowIndex * rowMetrics.height + 1, 0)
-    const left = Math.max(rowIndexWidth + columnMetric.offset + 1, 0)
+    const top = Math.max(
+      HEADER_HEIGHT + anchorCell.rowIndex * rowMetrics.height + SELECTION_BORDER_OFFSET,
+      0,
+    )
+    const left = Math.max(
+      rowIndexWidth + columnMetric.offset + SELECTION_BORDER_OFFSET,
+      0,
+    )
 
     return {
       top,
@@ -558,6 +763,33 @@ export const GridTable = ({
     return topRow === bottomRow && leftColumn === rightColumn
   }, [normalizedSelectionRange])
 
+  const handleGridScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      if (editingCell) {
+        commitEditing()
+      }
+
+      handleScroll(event)
+    },
+    [editingCell, commitEditing, handleScroll],
+  )
+
+  const handleRootPointerDownCapture = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!editingCell) {
+        return
+      }
+
+      const target = event.target as HTMLElement
+      if (target.closest('.grid-table__cell-editor')) {
+        return
+      }
+
+      commitEditing()
+    },
+    [editingCell, commitEditing],
+  )
+
   return (
     <section
       className={className ? `grid-table ${className}` : 'grid-table'}
@@ -566,110 +798,67 @@ export const GridTable = ({
       aria-rowcount={rowCount}
       role="grid"
       style={style}
+      onPointerDownCapture={handleRootPointerDownCapture}
     >
       <div
         className="grid-table__scroll"
-        onScroll={handleScroll}
+        onScroll={handleGridScroll}
         ref={scrollRef}
       >
-        {/* データ */}
-        <div
-          className="grid-table__spacer"
-          style={{
-            width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
-            height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
-          }}
-        >
-          <GridTableBody
-            bottomSpacerHeight={bottomSpacerHeight}
-            columnMetrics={renderColumnMetrics}
-            columns={renderColumns}
-            renderRowStartIndex={renderRowStartIndex}
-            renderColumnStartIndex={renderColumnStartIndex}
-            rowCount={rowCount}
-            rowHeight={rowMetrics.height}
-            rowIndexWidth={rowIndexWidth}
-            rows={renderRows}
-            spacerColumnWidth={spacerColumnWidth}
-            topSpacerHeight={topSpacerHeight}
-            totalRenderedColumns={totalRenderedColumns}
-            selectionRange={
-              selectionEnabled ? normalizedSelectionRange : null
-            }
-            anchorCell={selectionEnabled ? anchorCell : null}
-            activeCell={selectionEnabled ? activeCell : null}
-            onCellPointerDown={handleCellPointerDown}
-            onCellPointerMove={handleCellPointerMove}
-            onCellPointerUp={handleCellPointerUp}
-            onCellPointerCancel={handleCellPointerCancel}
-          />
-        </div>
+        <GridTableBody
+          anchorCell={selectionEnabled ? anchorCell : null}
+          activeCell={selectionEnabled ? activeCell : null}
+          columnMetrics={renderColumnMetrics}
+          columns={renderColumns}
+          contentHeight={contentHeight}
+          contentWidth={contentWidth}
+          renderRowStartIndex={renderRowStartIndex}
+          renderColumnStartIndex={renderColumnStartIndex}
+          rowCount={rowCount}
+          rowHeight={rowMetrics.height}
+          rowIndexWidth={rowIndexWidth}
+          rows={renderRows}
+          selectionRange={normalizedSelectionRange}
+          spacerColumnWidth={spacerColumnWidth}
+          totalRenderedColumns={totalRenderedColumns}
+          spacerHeight={spacerHeight}
+          bottomSpacerHeight={bottomSpacerHeight}
+          onCellPointerDown={handleCellPointerDown}
+          onCellPointerMove={handleCellPointerMove}
+          onCellPointerUp={handleCellPointerUp}
+          onCellPointerCancel={handleCellPointerCancel}
+          onCellDoubleClick={handleCellDoubleClick}
+        />
 
-        {selectionBounds && (
-          <>
-            {!isSingleCellSelection && (
-              <>
-                <CellSelection
-                  variant="fill"
-                  top={selectionBounds.top}
-                  left={selectionBounds.left}
-                  width={selectionBounds.width}
-                  height={selectionBounds.height}
-                />
-                <CellSelection
-                  variant="outline"
-                  top={selectionBounds.top}
-                  left={selectionBounds.left}
-                  width={selectionBounds.width}
-                  height={selectionBounds.height}
-                />
-              </>
-            )}
-            {anchorBounds && (
-              <CellSelection
-                variant="anchor"
-                top={anchorBounds.top}
-                left={anchorBounds.left}
-                width={anchorBounds.width}
-                height={anchorBounds.height}
-              />
-            )}
-          </>
-        )}
+        <CellSelection
+          anchorBounds={anchorBounds}
+          editingBounds={editingBounds}
+          editorRef={editorRef}
+          editorValue={editingValue}
+          isEditing={isEditing}
+          isSingleCellSelection={isSingleCellSelection}
+          onEditorBlur={handleEditorBlur}
+          onEditorChange={handleEditorChange}
+          selectionBounds={selectionBounds}
+        />
 
-        {/* ヘッダー */}
-        <div
-          className="grid-table__spacer"
-          style={{
-            width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
-            height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
-          }}
-        >
-          <GridTableHeader
-            columns={renderColumns}
-            columnMetrics={renderColumnMetrics}
-            rowIndexWidth={rowIndexWidth}
-            spacerColumnWidth={spacerColumnWidth}
-          />
-        </div>
+        <GridTableRowIndex
+          renderRowStartIndex={renderRowStartIndex}
+          rows={renderRows}
+          rowHeight={rowMetrics.height}
+          rowIndexWidth={rowIndexWidth}
+          spacerHeight={spacerHeight}
+          contentHeight={contentHeight}
+          contentWidth={contentWidth}
+          totalRenderedColumns={totalRenderedColumns}
+        />
 
-        {/* 行番号 */}
-        <div
-          className="grid-table__spacer"
-          style={{
-            width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
-            height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
-          }}
-        >
-          <GridTableRowIndex
-            renderRowStartIndex={renderRowStartIndex}
-            rowHeight={rowMetrics.height}
-            rowIndexWidth={rowIndexWidth}
-            rows={renderRows}
-            topSpacerHeight={topSpacerHeight}
-            totalRenderedColumns={totalRenderedColumns}
-          />
-        </div>
+        <GridTableHeader
+          columns={renderColumns}
+          columnMetrics={renderColumnMetrics}
+          rowIndexWidth={rowIndexWidth}
+          spacerColumnWidth={spacerColumnWidth}
+        />
       </div>
     </section>
   )

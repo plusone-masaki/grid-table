@@ -1,7 +1,7 @@
 import type { ComputedColumnMetrics } from 'types/grid'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
-interface GridTableHeaderProps {
+export interface GridTableHeaderProps {
   columns: ColumnDefinitionInput[]
   columnMetrics: ComputedColumnMetrics[]
   rowIndexWidth: number

@@ -1,22 +1,29 @@
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
-const getFirstDataCell = (page: import('@playwright/test').Page) =>
+const waitForGrid = async (page: Page) => {
+  await page.waitForSelector('.grid-table__table.--master tbody tr', {
+    state: 'attached',
+  })
+  await page.waitForFunction(() =>
+    document.querySelectorAll('.grid-table__table.--master tbody tr').length > 0,
+  )
+}
+
+const getFirstDataCell = (page: Page) =>
   page
     .locator('.grid-table__table.--master tbody tr')
     .first()
     .locator('td[role="gridcell"]')
     .first()
 
-const getNthCell = (
-  page: import('@playwright/test').Page,
-  rowIndex: number,
-  columnIndex: number,
-) =>
+const getNthCell = (page: Page, rowIndex: number, columnIndex: number) =>
   page.locator('.grid-table__table.--master tbody tr').nth(rowIndex).locator('td[role="gridcell"]').nth(columnIndex)
 
 test.describe('セル選択（単一セル）', () => {
   test('クリックでセルが選択され、アンカー枠が表示される', async ({ page }) => {
     await page.goto('/')
+    await waitForGrid(page)
 
     const firstCell = getFirstDataCell(page)
 
@@ -35,6 +42,7 @@ test.describe('セル選択（単一セル）', () => {
 
   test('スクロール後もアンカー枠が維持される', async ({ page }) => {
     await page.goto('/')
+    await waitForGrid(page)
 
     const firstCell = getFirstDataCell(page)
     await firstCell.click()
@@ -53,6 +61,7 @@ test.describe('セル選択（単一セル）', () => {
 test.describe('セル選択（範囲選択）', () => {
   test('ドラッグで矩形範囲を選択すると塗りつぶしと外枠が表示される', async ({ page }) => {
     await page.goto('/')
+    await waitForGrid(page)
 
     const startCell = getNthCell(page, 0, 0)
     const endCell = getNthCell(page, 2, 2)
@@ -79,6 +88,9 @@ test.describe('セル選択（範囲選択）', () => {
     await page.mouse.move(endRect.x, endRect.y, { steps: 5 })
     await page.mouse.up({ button: 'left' })
 
+    await startHandle.dispose()
+    await endHandle.dispose()
+
     const fillOverlay = page.locator('.grid-table__selection-fill')
     const outlineOverlay = page.locator('.grid-table__selection-outline')
 
@@ -93,6 +105,7 @@ test.describe('セル選択（範囲選択）', () => {
 
   test('Shift + クリックで矩形範囲を拡張できる', async ({ page }) => {
     await page.goto('/')
+    await waitForGrid(page)
 
     const startCell = getNthCell(page, 1, 1)
     const targetCell = getNthCell(page, 3, 2)
@@ -113,5 +126,53 @@ test.describe('セル選択（範囲選択）', () => {
 
     const selectedCells = page.locator('.grid-table__cell--selected')
     await expect(selectedCells).toHaveCount((3 - 1 + 1) * (2 - 1 + 1))
+  })
+})
+
+test.describe('セル編集', () => {
+  test('ダブルクリックで編集し、別セルクリックで確定する', async ({ page }) => {
+    await page.goto('/')
+    await waitForGrid(page)
+
+    const firstCell = getNthCell(page, 0, 0)
+    const secondCell = getNthCell(page, 0, 1)
+
+    await firstCell.dblclick()
+
+    const editor = page.locator('.grid-table__cell-editor')
+    await expect(editor).toBeVisible()
+    await expect(editor).toHaveValue('0')
+
+    await editor.fill('編集テキスト')
+    await secondCell.click()
+
+    await expect(editor).toHaveCount(0)
+    await expect(firstCell).toHaveText('編集テキスト')
+    await expect(secondCell).toHaveAttribute('aria-selected', 'true')
+  })
+
+  test('編集中にスクロールすると編集内容が確定する', async ({ page }) => {
+    await page.goto('/')
+    await waitForGrid(page)
+
+    const targetCell = getNthCell(page, 0, 2)
+
+    await targetCell.dblclick()
+
+    const editor = page.locator('.grid-table__cell-editor')
+    await expect(editor).toBeVisible()
+    await editor.fill('スクロール確定')
+
+    const scrollContainer = page.locator('.grid-table__scroll')
+    await scrollContainer.evaluate((element) => {
+      element.scrollTop = 200
+    })
+
+    await expect(editor).toHaveCount(0)
+    await scrollContainer.evaluate((element) => {
+      element.scrollTop = 0
+    })
+    await waitForGrid(page)
+    await expect(targetCell).toHaveText('スクロール確定')
   })
 })
