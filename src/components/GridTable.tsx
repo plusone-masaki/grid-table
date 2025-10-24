@@ -29,6 +29,7 @@ import {
 import GridTableBody from './GridTableBody'
 import GridTableHeader from './GridTableHeader'
 import GridTableRowIndex from './GridTableRowIndex'
+import CellSelection from './CellSelection'
 import './GridTable.css'
 
 type ResolvedColumn = ColumnMetricsInput
@@ -239,7 +240,7 @@ export const GridTable = ({
     [selectionEnabled],
   )
 
-  const selectionOutline = useMemo(() => {
+  const selectionBounds = useMemo(() => {
     if (!selectionEnabled || selection === null) {
       return null
     }
@@ -283,7 +284,6 @@ export const GridTable = ({
         onScroll={handleScroll}
         ref={scrollRef}
       >
-
         {/* データ */}
         <div
           className="grid-table__spacer"
@@ -310,16 +310,12 @@ export const GridTable = ({
           />
         </div>
 
-        {/* セル選択 */}
-        {selectionOutline && (
-          <div
-            className="grid-table__selection-outline"
-            style={{
-              top: `${selectionOutline.top}px`,
-              left: `${selectionOutline.left}px`,
-              width: `${selectionOutline.width}px`,
-              height: `${selectionOutline.height}px`,
-            }}
+        {selectionBounds && (
+          <CellSelection
+            top={selectionBounds.top}
+            left={selectionBounds.left}
+            width={selectionBounds.width}
+            height={selectionBounds.height}
           />
         )}
 
