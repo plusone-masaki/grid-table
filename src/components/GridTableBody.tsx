@@ -18,7 +18,6 @@ export interface GridTableBodyProps {
   spacerColumnWidth: number
   totalRenderedColumns: number
   spacerHeight: number
-  bottomSpacerHeight: number
   renderRowStartIndex: number
   renderColumnStartIndex: number
   selectionRange: NormalizedSelectionRange | null
@@ -53,7 +52,6 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   spacerColumnWidth,
   totalRenderedColumns,
   spacerHeight,
-  bottomSpacerHeight,
   renderRowStartIndex,
   renderColumnStartIndex,
   selectionRange,
@@ -238,19 +236,6 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                 </tr>
               )
             })}
-            {bottomSpacerHeight > 0 && (
-              <tr
-                aria-hidden="true"
-                className="grid-table__row-spacer"
-                role="presentation"
-              >
-                <td
-                  colSpan={totalRenderedColumns}
-                  role="presentation"
-                  style={{ height: `${bottomSpacerHeight}px` }}
-                />
-              </tr>
-            )}
           </>
         )}
       </tbody>

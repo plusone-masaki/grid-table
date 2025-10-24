@@ -149,7 +149,6 @@ export const GridTable = ({
   const [internalRows, setInternalRows] = useState<GridDataset>(bodyRows)
   const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null)
   const [editingValue, setEditingValue] = useState('')
-  const editorRef = useRef<HTMLTextAreaElement | null>(null)
   const previousBodyRowsRef = useRef(bodyRows)
   useEffect(() => {
     if (previousBodyRowsRef.current === bodyRows) {
@@ -161,14 +160,6 @@ export const GridTable = ({
     setEditingCell(null)
     setEditingValue('')
   }, [bodyRows])
-  useEffect(() => {
-    if (editingCell && editorRef.current) {
-      const textarea = editorRef.current
-      textarea.focus()
-      const length = textarea.value.length
-      textarea.setSelectionRange(length, length)
-    }
-  }, [editingCell])
 
   const columnMetrics = useColumnMetrics({
     columns: resolvedColumns,
@@ -229,13 +220,6 @@ export const GridTable = ({
   const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
 
   const spacerHeight = hasVisibleRows ? range.offsetTop : 0
-  const renderedRowCount = renderRows.length
-  const renderedRowsHeight = renderedRowCount * rowMetrics.height
-  const bottomSpacerHeight = Math.max(
-    contentHeight - spacerHeight - renderedRowsHeight,
-    0,
-  )
-
   const totalRenderedColumns =
     1 + (spacerColumnWidth > 0 ? 1 : 0) + renderColumns.length
 
@@ -335,8 +319,6 @@ export const GridTable = ({
     },
     [],
   )
-
-  const isEditing = editingCell !== null
 
   const commitEditing = useCallback(
     (
@@ -493,7 +475,7 @@ export const GridTable = ({
         return
       }
 
-      if (isEditing) {
+      if (editingCell) {
         const isSameCell =
           editingCell?.rowIndex === rowIndex &&
           editingCell?.columnIndex === columnIndex
@@ -528,7 +510,6 @@ export const GridTable = ({
     [
       selectionEnabled,
       updateSelectionState,
-      isEditing,
       editingCell,
       commitEditing,
     ],
@@ -754,15 +735,6 @@ export const GridTable = ({
     }
   }, [selectionEnabled, anchorCell, columnMetrics, rowMetrics.height, rowIndexWidth])
 
-  const isSingleCellSelection = useMemo(() => {
-    if (!normalizedSelectionRange) {
-      return false
-    }
-
-    const { topRow, bottomRow, leftColumn, rightColumn } = normalizedSelectionRange
-    return topRow === bottomRow && leftColumn === rightColumn
-  }, [normalizedSelectionRange])
-
   const handleGridScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       if (editingCell) {
@@ -822,7 +794,6 @@ export const GridTable = ({
           spacerColumnWidth={spacerColumnWidth}
           totalRenderedColumns={totalRenderedColumns}
           spacerHeight={spacerHeight}
-          bottomSpacerHeight={bottomSpacerHeight}
           onCellPointerDown={handleCellPointerDown}
           onCellPointerMove={handleCellPointerMove}
           onCellPointerUp={handleCellPointerUp}
@@ -833,10 +804,7 @@ export const GridTable = ({
         <CellSelection
           anchorBounds={anchorBounds}
           editingBounds={editingBounds}
-          editorRef={editorRef}
           editorValue={editingValue}
-          isEditing={isEditing}
-          isSingleCellSelection={isSingleCellSelection}
           onEditorBlur={handleEditorBlur}
           onEditorChange={handleEditorChange}
           selectionBounds={selectionBounds}
