@@ -26,9 +26,10 @@
 }
 
 .grid-table__spacer {
-  position: absolute;
   height: 100%;
   left: 0;
+  pointer-events: none;
+  position: absolute;
   top: 0;
   width: 100%;
 }
@@ -36,6 +37,7 @@
 .grid-table__table {
   background-color: #fff;
   border-collapse: collapse;
+  pointer-events: auto;
   table-layout: fixed;
 }
 
@@ -76,6 +78,7 @@
 .grid-table__table td {
   border-bottom: 1px solid #e2e8f0;
   border-right: 1px solid #e2e8f0;
+  font-size: 14px;
   padding: 0 4px;
   white-space: nowrap;
 }
@@ -110,4 +113,18 @@
   background-color: transparent;
   border: none;
   padding: 0;
+}
+
+.grid-table__selection-outline {
+  background-color: transparent;
+  border: 2px solid #2563eb;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+  z-index: 2;
 }

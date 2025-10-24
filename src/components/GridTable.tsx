@@ -1,4 +1,11 @@
-import { useMemo, useRef } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import useColumnMetrics, {
   type ColumnDefinitionInput as ColumnMetricsInput,
 } from '../hooks/useColumnMetrics'
@@ -7,6 +14,7 @@ import useVirtualGrid from '../hooks/useVirtualGrid'
 import {
   type ColumnPreset,
   type GridDataset,
+  type CellCoordinate,
   type GridRow,
   type GridTableProps,
 } from 'types/grid'
@@ -82,6 +90,8 @@ export const GridTable = ({
 }: GridTableProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const data = rawData.length === 0 ? EMPTY_DATASET_FALLBACK : rawData
+  const isFallbackData = rawData.length === 0
+  const [selection, setSelection] = useState<CellCoordinate | null>(null)
 
   const { headerRow, bodyRows } = useMemo(() => {
     if (headerType === 'headers' && rawData.length > 0) {
@@ -157,9 +167,12 @@ export const GridTable = ({
   const hasVisibleRows = visibleRows.length > 0
 
   const renderColumns = hasVisibleColumns ? visibleColumns : resolvedColumns
-  const renderColumnMetrics = hasVisibleColumns ? visibleColumnMetrics : columnMetrics
+  const renderColumnMetrics = hasVisibleColumns
+    ? visibleColumnMetrics
+    : columnMetrics
   const renderRows = hasVisibleRows ? visibleRows : bodyRows
   const renderRowStartIndex = hasVisibleRows ? range.rowStart : 0
+  const renderColumnStartIndex = hasVisibleColumns ? range.columnStart : 0
   const offsetLeft = hasVisibleColumns ? range.offsetLeft : 0
   const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
 
@@ -176,6 +189,85 @@ export const GridTable = ({
   const rowCount = bodyRows.length
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
+  const selectionEnabled =
+    !isFallbackData && rowCount > 0 && columnCount > 0 && columnMetrics.length > 0
+
+  useEffect(() => {
+    if (!selectionEnabled) {
+      if (selection !== null) {
+        setSelection(null)
+      }
+      return
+    }
+
+    if (selection === null) {
+      return
+    }
+
+    const isRowInRange = selection.rowIndex >= 0 && selection.rowIndex < rowCount
+    const isColumnInRange =
+      selection.columnIndex >= 0 && selection.columnIndex < columnCount
+
+    if (!isRowInRange || !isColumnInRange) {
+      setSelection(null)
+    }
+  }, [selectionEnabled, selection, rowCount, columnCount, setSelection])
+
+  const handleCellPointerDown = useCallback(
+    (
+      event: ReactPointerEvent<HTMLTableCellElement>,
+      rowIndex: number,
+      columnIndex: number,
+    ) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      if (!event.isPrimary) {
+        return
+      }
+
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return
+      }
+
+      setSelection({
+        rowIndex,
+        columnIndex,
+      })
+    },
+    [selectionEnabled],
+  )
+
+  const selectionOutline = useMemo(() => {
+    if (!selectionEnabled || selection === null) {
+      return null
+    }
+
+    const columnMetric = columnMetrics[selection.columnIndex]
+    if (!columnMetric) {
+      return null
+    }
+
+    const top = Math.max(
+      HEADER_HEIGHT + selection.rowIndex * rowMetrics.height,
+      0,
+    )
+    const left = Math.max(rowIndexWidth + columnMetric.offset, 0)
+
+    return {
+      top,
+      left,
+      width: columnMetric.width,
+      height: rowMetrics.height,
+    }
+  }, [
+    selectionEnabled,
+    selection,
+    columnMetrics,
+    rowMetrics.height,
+    rowIndexWidth,
+  ])
 
   return (
     <section
@@ -191,6 +283,46 @@ export const GridTable = ({
         onScroll={handleScroll}
         ref={scrollRef}
       >
+
+        {/* データ */}
+        <div
+          className="grid-table__spacer"
+          style={{
+            width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
+            height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
+          }}
+        >
+          <GridTableBody
+            bottomSpacerHeight={bottomSpacerHeight}
+            columnMetrics={renderColumnMetrics}
+            columns={renderColumns}
+            renderRowStartIndex={renderRowStartIndex}
+            renderColumnStartIndex={renderColumnStartIndex}
+            rowCount={rowCount}
+            rowHeight={rowMetrics.height}
+            rowIndexWidth={rowIndexWidth}
+            rows={renderRows}
+            spacerColumnWidth={spacerColumnWidth}
+            topSpacerHeight={topSpacerHeight}
+            totalRenderedColumns={totalRenderedColumns}
+            selection={selectionEnabled ? selection : null}
+            onCellPointerDown={handleCellPointerDown}
+          />
+        </div>
+
+        {/* セル選択 */}
+        {selectionOutline && (
+          <div
+            className="grid-table__selection-outline"
+            style={{
+              top: `${selectionOutline.top}px`,
+              left: `${selectionOutline.left}px`,
+              width: `${selectionOutline.width}px`,
+              height: `${selectionOutline.height}px`,
+            }}
+          />
+        )}
+
         {/* ヘッダー */}
         <div
           className="grid-table__spacer"
@@ -220,29 +352,6 @@ export const GridTable = ({
             rowHeight={rowMetrics.height}
             rowIndexWidth={rowIndexWidth}
             rows={renderRows}
-            topSpacerHeight={topSpacerHeight}
-            totalRenderedColumns={totalRenderedColumns}
-          />
-        </div>
-
-        {/* データ */}
-        <div
-          className="grid-table__spacer"
-          style={{
-            width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
-            height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
-          }}
-        >
-          <GridTableBody
-            bottomSpacerHeight={bottomSpacerHeight}
-            columnMetrics={renderColumnMetrics}
-            columns={renderColumns}
-            renderRowStartIndex={renderRowStartIndex}
-            rowCount={rowCount}
-            rowHeight={rowMetrics.height}
-            rowIndexWidth={rowIndexWidth}
-            rows={renderRows}
-            spacerColumnWidth={spacerColumnWidth}
             topSpacerHeight={topSpacerHeight}
             totalRenderedColumns={totalRenderedColumns}
           />

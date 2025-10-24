@@ -23,9 +23,8 @@
 - **スクロールオフセット**：`useVirtualGrid` が返す `range.offsetTop` / `range.offsetLeft`。セル位置計算に利用する。
 
 ## 5. UI / 視覚仕様
-- 選択枠は `div.grid-table__selection-layer`（スクロールコンテナ内の絶対配置）配下に `div.grid-table__selection-outline` として描画する。選択が存在しない場合は両要素とも描画しない。
-- `grid-table__selection-layer` を生成する際は `grid-table__scroll` の直下に配置し、`position: absolute; inset: 0;` を指定する。
-- 将来のセル編集（ダブルクリック）を考慮し、`grid-table__selection-layer` / `grid-table__selection-outline` はデフォルトの `pointer-events` を維持し、必要に応じてイベントハンドリングを実装できる状態にしておく。
+- 選択枠は `div.grid-table__selection-outline` として描画し、選択が存在しない場合は DOM に生成しない。
+- `grid-table__selection-outline` は `grid-table__scroll` の直下に一意に配置し、`position: absolute` でセル境界に追従させる。
 - `grid-table__selection-outline` のスタイル：
   - 枠線色：`#2563eb`。
   - 枠線太さ：2px。
@@ -46,18 +45,17 @@
 - `GridTable` コンポーネントで `const [selection, setSelection] = useState<CellCoordinate | null>(null)` を保持する。
 - `selection` は仮想化以前の「絶対座標」（データセット基準）を保存する。
 - `GridTableBody` に現在の選択座標と更新関数を渡し、セル描画時に `aria-selected` 判定を行う。
-- 位置計算は `GridTable` 側で行い、`selection`・`columnMetrics`・`rowMetrics.height`・`range.offsetTop` / `offsetLeft` からピクセル位置を算出、`selection-layer` に `style` を渡す。
+- 位置計算は `GridTable` 側で行い、`selection`・`columnMetrics`・`rowMetrics.height`・`range.offsetTop` / `offsetLeft` からピクセル位置を算出し、`selection-outline` に `style` を渡す。
 - データが空配列になる、または `selection.rowIndex >= rowCount` / `selection.columnIndex >= columnCount` になった場合は `setSelection(null)` でリセットする。
 
 ## 8. DOM 構造とレイヤー
 - 選択ありの場合の DOM 階層例：
   ```
   div.grid-table__scroll (relative)
-   ├─ div.grid-table__selection-layer (absolute)
-   │   └─ div.grid-table__selection-outline (absolute, width/height/transform により枠線表示)
+   ├─ div.grid-table__selection-outline (absolute, width/height/transform により枠線表示)
    └─ 既存の grid-table__spacer 群
   ```
-  - `selection-layer` はスクロール位置に追従するため `top` / `left` を `scrollTop` / `scrollLeft` に依存させる。`useLayoutEffect` で DOM 計測は不要とし、仮想化メトリクスのみで計算する。
+  - `selection-outline` はスクロール位置に追従するため `top` / `left` を `scrollTop` / `scrollLeft` に依存させる。`useLayoutEffect` で DOM 計測は不要とし、仮想化メトリクスのみで計算する。
 - 計算式（概略）：
   - `left = rowIndexWidth + spacerColumnWidth + columnOffsets[columnIndex] - range.offsetLeft`
   - `top = HEADER_HEIGHT + (selection.rowIndex - range.rowStart) * rowHeight - range.offsetTop`
@@ -78,7 +76,7 @@
 
 ## 11. テスト戦略
 - `GridTable` のレンダリングテスト：
-  - 初期表示では `grid-table__selection-layer` / `grid-table__selection-outline` が DOM に存在しないこと。
+  - 初期表示では `grid-table__selection-outline` が DOM に存在しないこと。
   - データ付きで 1 セルをクリックすると `aria-selected="true"` が設定され、枠線のスタイル（幅・高さ・座標）が期待通りに更新されることを `getComputedStyle` モック等で検証。
 - スクロールと仮想化テスト：
   - オーバースクロールで選択セルが再描画されたときに枠線が継続して DOM 上に存在し、座標値が更新されること。

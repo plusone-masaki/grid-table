@@ -1,4 +1,9 @@
-import type { ComputedColumnMetrics, GridDataset } from 'types/grid'
+import type {
+  CellCoordinate,
+  ComputedColumnMetrics,
+  GridDataset,
+} from 'types/grid'
+import type { PointerEvent } from 'react'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
 interface GridTableBodyProps {
@@ -13,6 +18,13 @@ interface GridTableBodyProps {
   topSpacerHeight: number
   bottomSpacerHeight: number
   renderRowStartIndex: number
+  renderColumnStartIndex: number
+  selection: CellCoordinate | null
+  onCellPointerDown?: (
+    event: PointerEvent<HTMLTableCellElement>,
+    rowIndex: number,
+    columnIndex: number,
+  ) => void
 }
 
 const GridTableBody = ({
@@ -27,6 +39,9 @@ const GridTableBody = ({
   topSpacerHeight,
   bottomSpacerHeight,
   renderRowStartIndex,
+  renderColumnStartIndex,
+  selection,
+  onCellPointerDown,
 }: GridTableBodyProps) => (
   <table className="grid-table__table --master">
     <colgroup>
@@ -104,12 +119,30 @@ const GridTableBody = ({
                   role="presentation"
                 />
               )}
-              {columns.map((column) => {
+              {columns.map((column, columnIndex) => {
                 const cellValue = row[column.id]
+                const absoluteRowIndex = renderRowStartIndex + rowIndex
+                const absoluteColumnIndex =
+                  renderColumnStartIndex + columnIndex
+                const isSelected =
+                  selection?.rowIndex === absoluteRowIndex &&
+                  selection?.columnIndex === absoluteColumnIndex
+
                 return (
                   <td
                     key={`${renderRowStartIndex + rowIndex}-${column.id}`}
                     role="gridcell"
+                    aria-selected={isSelected ? 'true' : undefined}
+                    onPointerDown={
+                      onCellPointerDown
+                        ? (event) =>
+                            onCellPointerDown(
+                              event,
+                              absoluteRowIndex,
+                              absoluteColumnIndex,
+                            )
+                        : undefined
+                    }
                   >
                     {cellValue ?? ''}
                   </td>

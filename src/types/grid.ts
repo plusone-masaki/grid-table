@@ -38,6 +38,11 @@ export interface ScrollPosition {
 
 export type ColumnPreset = 'alpha' | 'numeric' | 'headers'
 
+export interface CellCoordinate {
+  rowIndex: number
+  columnIndex: number
+}
+
 export interface GridTableProps {
   data?: GridDataset
   headerType?: ColumnPreset
