@@ -103,13 +103,12 @@ export const GridTable = ({
   style,
 }: GridTableProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { headerRow, bodyRows, isFallbackDataset } = useMemo(() => {
+  const { headerRow, bodyRows } = useMemo(() => {
     if (headerType === 'headers' && rawData.length > 0) {
       const [firstRow, ...restRows] = rawData
       return {
         headerRow: firstRow,
         bodyRows: restRows,
-        isFallbackDataset: false,
       }
     }
 
@@ -117,14 +116,12 @@ export const GridTable = ({
       return {
         headerRow: undefined,
         bodyRows: EMPTY_DATASET_FALLBACK,
-        isFallbackDataset: true,
       }
     }
 
     return {
       headerRow: undefined,
       bodyRows: rawData,
-      isFallbackDataset: false,
     }
   }, [headerType, rawData])
   const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(null)
@@ -206,28 +203,14 @@ export const GridTable = ({
     [internalRows, range.rowStart, range.rowEnd],
   )
 
-  const hasVisibleColumns = visibleColumnMetrics.length > 0
-  const hasVisibleRows = visibleRows.length > 0
-
-  const renderColumns = hasVisibleColumns ? visibleColumns : resolvedColumns
-  const renderColumnMetrics = hasVisibleColumns
-    ? visibleColumnMetrics
-    : columnMetrics
-  const renderRows = hasVisibleRows ? visibleRows : internalRows
-  const renderRowStartIndex = hasVisibleRows ? range.rowStart : 0
-  const renderColumnStartIndex = hasVisibleColumns ? range.columnStart : 0
-  const offsetLeft = hasVisibleColumns ? range.offsetLeft : 0
-  const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
-
-  const spacerHeight = hasVisibleRows ? range.offsetTop : 0
+  const spacerWidth = range.offsetLeft
+  const spacerHeight = range.offsetTop
   const totalRenderedColumns =
-    1 + (spacerColumnWidth > 0 ? 1 : 0) + renderColumns.length
+    1 + (spacerWidth > 0 ? 1 : 0) + visibleColumns.length
 
   const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
-  const selectionEnabled =
-    !isFallbackDataset && rowCount > 0 && columnMetrics.length > 0
 
   const resetSelectionState = useCallback(() => {
     setSelectionRange(null)
@@ -242,11 +225,6 @@ export const GridTable = ({
   }, [])
 
   useEffect(() => {
-    if (!selectionEnabled) {
-      resetSelectionState()
-      return
-    }
-
     if (selectionRange === null) {
       return
     }
@@ -265,13 +243,7 @@ export const GridTable = ({
     if (!isRowInRange || !isColumnInRange) {
       resetSelectionState()
     }
-  }, [
-    selectionEnabled,
-    selectionRange,
-    rowCount,
-    columnCount,
-    resetSelectionState,
-  ])
+  }, [selectionRange, rowCount, columnCount, resetSelectionState])
 
   const updateSelectionState = useCallback(
     (anchor: CellCoordinate, focus: CellCoordinate) => {
@@ -372,10 +344,6 @@ export const GridTable = ({
 
   const startEditing = useCallback(
     (cell: CellCoordinate) => {
-      if (!selectionEnabled) {
-        return
-      }
-
       const column = resolvedColumns[cell.columnIndex]
       const row = internalRows[cell.rowIndex]
       if (!column || !row) {
@@ -394,18 +362,14 @@ export const GridTable = ({
       setEditingCell(cell)
       setEditingValue(value)
     },
-    [selectionEnabled, resolvedColumns, internalRows, updateSelectionState],
+    [resolvedColumns, internalRows, updateSelectionState],
   )
 
   const handleCellDoubleClick = useCallback(
     (rowIndex: number, columnIndex: number) => {
-      if (!selectionEnabled) {
-        return
-      }
-
       startEditing({ rowIndex, columnIndex })
     },
-    [selectionEnabled, startEditing],
+    [startEditing],
   )
 
   const handleEditorChange = useCallback(
@@ -463,10 +427,6 @@ export const GridTable = ({
       rowIndex: number,
       columnIndex: number,
     ) => {
-      if (!selectionEnabled) {
-        return
-      }
-
       if (!event.isPrimary) {
         return
       }
@@ -507,20 +467,11 @@ export const GridTable = ({
         // 一部環境で setPointerCapture が失敗する可能性があるため握りつぶす
       }
     },
-    [
-      selectionEnabled,
-      updateSelectionState,
-      editingCell,
-      commitEditing,
-    ],
+    [updateSelectionState, editingCell, commitEditing],
   )
 
   const handleCellPointerMove = useCallback(
     (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!selectionEnabled) {
-        return
-      }
-
       if (!pointerStateRef.current.isSelecting) {
         return
       }
@@ -557,13 +508,7 @@ export const GridTable = ({
       lastFocusRef.current = cloneCellCoordinate(nextFocus)
       updateSelectionState(anchor, nextFocus)
     },
-    [
-      selectionEnabled,
-      resolveCellFromEvent,
-      rowCount,
-      columnCount,
-      updateSelectionState,
-    ],
+    [resolveCellFromEvent, rowCount, columnCount, updateSelectionState],
   )
 
   const releasePointerCapture = (
@@ -609,28 +554,24 @@ export const GridTable = ({
 
   const handleCellPointerUp = useCallback(
     (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!selectionEnabled || !pointerStateRef.current.isSelecting) {
+      if (!pointerStateRef.current.isSelecting) {
         return
       }
 
       finalizePointerSelection(event)
     },
-    [selectionEnabled, finalizePointerSelection],
+    [finalizePointerSelection],
   )
 
   const handleCellPointerCancel = useCallback(
     (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!selectionEnabled) {
-        return
-      }
-
       finalizePointerSelection(event)
     },
-    [selectionEnabled, finalizePointerSelection],
+    [finalizePointerSelection],
   )
 
   const normalizedSelectionRange = useMemo<NormalizedSelectionRange | null>(() => {
-    if (!selectionEnabled || selectionRange === null) {
+    if (selectionRange === null) {
       return null
     }
 
@@ -642,10 +583,10 @@ export const GridTable = ({
       leftColumn: Math.min(anchor.columnIndex, focus.columnIndex),
       rightColumn: Math.max(anchor.columnIndex, focus.columnIndex),
     }
-  }, [selectionEnabled, selectionRange])
+  }, [selectionRange])
 
   const selectionBounds = useMemo<SelectionRectangle | null>(() => {
-    if (!selectionEnabled || normalizedSelectionRange === null) {
+    if (normalizedSelectionRange === null) {
       return null
     }
 
@@ -677,7 +618,6 @@ export const GridTable = ({
       height,
     }
   }, [
-    selectionEnabled,
     normalizedSelectionRange,
     columnMetrics,
     rowMetrics.height,
@@ -685,7 +625,7 @@ export const GridTable = ({
   ])
 
   const editingBounds = useMemo<SelectionRectangle | null>(() => {
-    if (!selectionEnabled || !editingCell) {
+    if (!editingCell) {
       return null
     }
 
@@ -706,10 +646,10 @@ export const GridTable = ({
       width: columnMetric.width,
       height: rowMetrics.height,
     }
-  }, [selectionEnabled, editingCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+  }, [editingCell, columnMetrics, rowMetrics.height, rowIndexWidth])
 
   const anchorBounds = useMemo<SelectionRectangle | null>(() => {
-    if (!selectionEnabled || !anchorCell) {
+    if (!anchorCell) {
       return null
     }
 
@@ -733,7 +673,7 @@ export const GridTable = ({
       width: columnMetric.width,
       height: rowMetrics.height,
     }
-  }, [selectionEnabled, anchorCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+  }, [anchorCell, columnMetrics, rowMetrics.height, rowIndexWidth])
 
   const handleGridScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
@@ -778,20 +718,20 @@ export const GridTable = ({
         ref={scrollRef}
       >
         <GridTableBody
-          anchorCell={selectionEnabled ? anchorCell : null}
-          activeCell={selectionEnabled ? activeCell : null}
-          columnMetrics={renderColumnMetrics}
-          columns={renderColumns}
+          anchorCell={anchorCell}
+          activeCell={activeCell}
+          columnMetrics={visibleColumnMetrics}
+          columns={visibleColumns}
           contentHeight={contentHeight}
           contentWidth={contentWidth}
-          renderRowStartIndex={renderRowStartIndex}
-          renderColumnStartIndex={renderColumnStartIndex}
+          renderRowStartIndex={range.rowStart}
+          renderColumnStartIndex={range.columnStart}
           rowCount={rowCount}
           rowHeight={rowMetrics.height}
           rowIndexWidth={rowIndexWidth}
-          rows={renderRows}
+          rows={visibleRows}
           selectionRange={normalizedSelectionRange}
-          spacerColumnWidth={spacerColumnWidth}
+          spacerWidth={spacerWidth}
           totalRenderedColumns={totalRenderedColumns}
           spacerHeight={spacerHeight}
           onCellPointerDown={handleCellPointerDown}
@@ -811,8 +751,8 @@ export const GridTable = ({
         />
 
         <GridTableRowIndex
-          renderRowStartIndex={renderRowStartIndex}
-          rows={renderRows}
+          renderRowStartIndex={range.rowStart}
+          rows={visibleRows}
           rowHeight={rowMetrics.height}
           rowIndexWidth={rowIndexWidth}
           spacerHeight={spacerHeight}
@@ -822,10 +762,10 @@ export const GridTable = ({
         />
 
         <GridTableHeader
-          columns={renderColumns}
-          columnMetrics={renderColumnMetrics}
+          columns={visibleColumns}
+          columnMetrics={visibleColumnMetrics}
           rowIndexWidth={rowIndexWidth}
-          spacerColumnWidth={spacerColumnWidth}
+          spacerWidth={spacerWidth}
         />
       </div>
     </section>

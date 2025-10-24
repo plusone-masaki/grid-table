@@ -22,12 +22,8 @@ const CellSelection = ({
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
-    if (!editingBounds) {
-      return
-    }
-
     const textarea = editorRef.current
-    if (!textarea) {
+    if (!editingBounds || !textarea) {
       return
     }
 

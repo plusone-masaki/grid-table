@@ -71,7 +71,7 @@ div.grid-table__scroll (relative)
 - 塗りつぶし要素・アウトライン要素は `aria-hidden="true"` とし、支援技術には報告しない。
 
 ## 10. エッジケースと動作要件
-- `EMPTY_DATASET_FALLBACK` 使用中は範囲選択を無効化し、`selectionRange` は常に `null`。
+- `EMPTY_DATASET_FALLBACK` 使用中も範囲選択を有効化し、通常データと同じく `selectionRange` を更新する。
 - 行または列が 0 の場合はアンカー設定も許可しない。
 - ドラッグ中にポインタがキャンバス外へ出た場合でも、キャプチャによりドラッグ継続を保証。`pointercancel` 受信時は確実に終了処理を行う。
 - 連続して同一セルをドラッグ開始→終了した場合、単一セル範囲として扱い、余分なイベント発火を避ける。

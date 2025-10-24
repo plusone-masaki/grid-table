@@ -5,20 +5,20 @@ export interface GridTableHeaderProps {
   columns: ColumnDefinitionInput[]
   columnMetrics: ComputedColumnMetrics[]
   rowIndexWidth: number
-  spacerColumnWidth: number
+  spacerWidth: number
 }
 
 const GridTableHeader = ({
   columns,
   columnMetrics,
   rowIndexWidth,
-  spacerColumnWidth,
+  spacerWidth,
 }: GridTableHeaderProps) => (
   <table className="grid-table__table --header">
     <colgroup>
       <col style={{ width: rowIndexWidth }} />
-      {spacerColumnWidth > 0 && (
-        <col style={{ width: spacerColumnWidth }} />
+      {spacerWidth > 0 && (
+        <col style={{ width: spacerWidth }} />
       )}
       {columnMetrics.map((metric) => (
         <col
@@ -34,7 +34,7 @@ const GridTableHeader = ({
           className="grid-table__row-index-cell grid-table__row-index-header"
           style={{ width: rowIndexWidth }}
         />
-        {spacerColumnWidth > 0 && (
+        {spacerWidth > 0 && (
           <th
             aria-hidden="true"
             className="grid-table__column-spacer"

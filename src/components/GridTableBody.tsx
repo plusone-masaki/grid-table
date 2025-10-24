@@ -15,7 +15,7 @@ export interface GridTableBodyProps {
   rowCount: number
   rowHeight: number
   rowIndexWidth: number
-  spacerColumnWidth: number
+  spacerWidth: number
   totalRenderedColumns: number
   spacerHeight: number
   renderRowStartIndex: number
@@ -49,7 +49,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   rowCount,
   rowHeight,
   rowIndexWidth,
-  spacerColumnWidth,
+  spacerWidth,
   totalRenderedColumns,
   spacerHeight,
   renderRowStartIndex,
@@ -79,8 +79,8 @@ const GridTableBody: FC<GridTableBodyProps> = ({
     <table className="grid-table__table --master">
       <colgroup>
         <col style={{ width: rowIndexWidth }} />
-        {spacerColumnWidth > 0 && (
-          <col style={{ width: spacerColumnWidth }} />
+        {spacerWidth > 0 && (
+          <col style={{ width: spacerWidth }} />
         )}
         {columnMetrics.map((metric) => (
           <col
@@ -96,7 +96,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
             className="grid-table__row-index-cell grid-table__row-index-header"
             style={{ width: rowIndexWidth }}
           />
-          {spacerColumnWidth > 0 && (
+          {spacerWidth > 0 && (
             <th
               aria-hidden="true"
               className="grid-table__column-spacer"
@@ -152,7 +152,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                   >
                     {absoluteRowIndex + 1}
                   </th>
-                  {spacerColumnWidth > 0 && (
+                  {spacerWidth > 0 && (
                     <td
                       aria-hidden="true"
                       className="grid-table__column-spacer"
