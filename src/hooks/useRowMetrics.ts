@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { ComputedRowMetrics, GridDataset } from '../types/grid'
+import type { ComputedRowMetrics, GridDataset } from 'types/grid'
 
 const DEFAULT_SAMPLE_SIZE = 50
 const BASE_ROW_HEIGHT = 22

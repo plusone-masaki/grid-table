@@ -32,6 +32,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 - `overscan?: { rows?: number; columns?: number }` (default: 5 rows, 2 columns)
 - `onViewportChange?: (viewport: ViewportRange) => void`
 - `initialScrollPosition?: { top?: number; left?: number }`
+  - Only the type definition exists today; the component does not yet honour an initial scroll position and the field is reserved for a future enhancement.
 - `className?: string` / `style?: React.CSSProperties`
   - Optional presentation hooks for host applications integrating the library.
 
@@ -56,7 +57,9 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 - The scrollable viewport stretches to the height supplied by the parent container; the component itself does not enforce a fixed pixel height.
 - Cell content placeholders are shown immediately; cell value retrieval must be synchronous in phase 1.
 - Headers (top and left) remain in sync with scrolling and are virtualized if needed.
-- 先頭列に行番号を常時表示する。行番号列は凍結扱いで左端に固定し、ビューポート内の行インデックス（1 始まり）を表示する。
+- The leading column always displays row numbers. The index column is treated as frozen, pinned to the left edge, and renders one-based indices for the visible rows.
+- Layout is composed of three stacked `<table>` elements (header, row index, body) kept in sync via sticky positioning; the implementation does not rely on CSS Grid.
+- The row index column width is computed as `rowIndexMaxLength * 9.6 + 24` with a lower bound of `MIN_ROW_INDEX_WIDTH = 48`.
 - Header presets operate as follows:
   - `'alpha'`: header labels follow spreadsheet-style alphabetical increments.
   - `'numeric'`: header labels increment numerically.
@@ -64,24 +67,23 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 
 ### 6.2 Scrolling
 - Scroll container exposes native scrollbars.
-- Reacts to wheel, touchpad, keyboard (↑ ↓ ← → PgUp PgDn Home End), and scrollbar drag events.
-- Applies bouncing guardrails to prevent negative indices or overshooting total counts.
+- Reacts to wheel, touchpad, and scrollbar drag events.
+- Applies clamping guardrails to prevent negative indices or overshooting total counts.
 - On every scroll, compute visible row/column window and trigger re-render with new slice.
-- Fires `onViewportChange` after throttling to animation frame to avoid excessive callbacks.
+- `onViewportChange` fires immediately within the `onScroll` handler with no additional throttling.
 
 ### 6.3 Keyboard navigation
-- Arrow keys and PgUp/PgDn adjust the scroll position by one row/column or viewport height.
-- Home/End jump to start/end of dataset.
-- Virtual focus ring (placeholder) is acceptable until cell selection is implemented.
+- Keyboard navigation handling is not yet implemented and will be covered in a later feature.
 
 ### 6.4 Column & Row Metrics
 - At mount and whenever `data` or `headerType` change, the grid measures header cells and the first `sampleRowCount` body rows to determine column widths.
 - Row height is derived from typography metrics (header text + sampled cells) and cached as a single value (`ComputedRowMetrics.height`).
 - Width calculation clamps to internal `MIN_COLUMN_WIDTH` / `MAX_COLUMN_WIDTH`; row height clamps to `MIN_ROW_HEIGHT` / `MAX_ROW_HEIGHT`.
 - Computed metrics are cached and diffed to avoid unnecessary renders, and shared with virtualization logic.
-- When asynchronous measurement is required (e.g., font loading), placeholders use interim baseline metrics until measurement resolves.
+- Row metrics use `BASE_ROW_HEIGHT = 22`, `MIN_ROW_HEIGHT = 22`, and `MAX_ROW_HEIGHT = 80`. The heuristic treats every 30 characters as wrapping to a new line and adds 12 px per additional line.
+- Column metrics sample the first 50 body rows, estimate width as `textLength * 8 + 24`, and clamp the result between 80 px and 320 px.
 - For `'headers'`, metrics leverage the extracted header row alongside body samples to ensure consistent sizing.
-- 行番号列の幅は行数に応じた文字幅を内部で算出し、常に可視化する（横スクロールしても消えない）。
+- The row index column width is derived from the row count using the same character-width heuristic and remains visible even while horizontally scrolling.
 
 ### 6.5 Accessibility
 - The grid container uses ARIA roles (`role="grid"`) and exposes visible row/column counts via `aria-rowcount` and `aria-colcount`.
@@ -114,7 +116,7 @@ The project aims to deliver a high-performance React + TypeScript grid table com
 1. Demo page renders 1,000,000 rows × 100 columns without exceeding 200 ms initial load.
 2. Scroll interactions produce no white gaps or visible reflow jank.
 3. `onViewportChange` emits accurate indices consistent with rendered cells.
-4. Storybook or sandbox example demonstrates horizontal + vertical virtualization（行番号列の固定表示を含む）、およびキーボードナビゲーション。
+4. Storybook or sandbox example demonstrates horizontal + vertical virtualization, includes the frozen row index column, and covers keyboard navigation once it ships.
 5. Auto column width measurement handles heterogeneous content, including extreme wide/narrow values, without breaking viewport calculations.
 6. Row height measurement adapts to text-heavy datasets without clipping or excessive whitespace.
 7. Column presets (`'alpha'`, `'numeric'`, `'headers'`) behave as specified, with `'headers'` excluding the first row from the rendered body.
