@@ -39,7 +39,7 @@ export interface ScrollPosition {
 export type ColumnPreset = 'alpha' | 'numeric' | 'headers'
 
 export interface GridTableProps {
-  data: GridDataset
+  data?: GridDataset
   headerType?: ColumnPreset
   overscan?: OverscanConfig
   onViewportChange?: (viewport: ViewportRange) => void

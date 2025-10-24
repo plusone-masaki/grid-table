@@ -20,6 +20,8 @@ const DEFAULT_OVERSCAN: OverscanConfig = {
   columns: 2,
 }
 
+const EMPTY_DATASET_FALLBACK: GridDataset = [['']] as unknown as GridDataset
+
 const ROW_INDEX_CHAR_WIDTH = 9.6
 const ROW_INDEX_PADDING = 24
 const MIN_ROW_INDEX_WIDTH = 48
@@ -74,7 +76,7 @@ const resolveHeaderLabel = (
 }
 
 export const GridTable = ({
-  data,
+  data: rawData = EMPTY_DATASET_FALLBACK,
   headerType = 'alpha',
   overscan,
   onViewportChange,
@@ -82,10 +84,11 @@ export const GridTable = ({
   style,
 }: GridTableProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const data = rawData.length === 0 ? EMPTY_DATASET_FALLBACK : rawData
 
   const { headerRow, bodyRows } = useMemo(() => {
-    if (headerType === 'headers' && data.length > 0) {
-      const [firstRow, ...restRows] = data
+    if (headerType === 'headers' && rawData.length > 0) {
+      const [firstRow, ...restRows] = rawData
       return {
         headerRow: firstRow,
         bodyRows: restRows,
@@ -96,7 +99,7 @@ export const GridTable = ({
       headerRow: undefined,
       bodyRows: data,
     }
-  }, [headerType, data])
+  }, [headerType, rawData, data])
 
   const resolvedColumns: ResolvedColumn[] = useMemo(() => {
     const columnKeys = resolveColumnKeys(headerRow, bodyRows)
