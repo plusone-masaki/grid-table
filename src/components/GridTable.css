@@ -26,17 +26,37 @@
 }
 
 .grid-table__spacer {
-  position: relative;
+  position: absolute;
   height: 100%;
+  left: 0;
+  top: 0;
   width: 100%;
 }
 
 .grid-table__table {
   background-color: #fff;
   border-collapse: collapse;
-  position: absolute;
   table-layout: fixed;
+}
+
+.grid-table__table.--master {
+  left: 0;
+  position: absolute;
+  top: 0;
   width: max-content;
+}
+
+.grid-table__table.--header {
+  position: sticky;
+  top: 0;
+  width: max-content;
+  z-index: 6;
+}
+
+.grid-table__table.--number {
+  left: 0;
+  position: sticky;
+  z-index: 5;
 }
 
 .grid-table__table thead th {

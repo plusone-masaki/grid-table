@@ -164,17 +164,6 @@ export const GridTable = ({
   const offsetLeft = hasVisibleColumns ? range.offsetLeft : 0
   const spacerColumnWidth = hasVisibleColumns ? offsetLeft : 0
 
-  const spacerStyle = {
-    width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
-    height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
-  }
-
-  const tableStyle = {
-    top: '0px',
-    left: '0px',
-    width: 'max-content',
-  }
-
   const topSpacerHeight = hasVisibleRows ? range.offsetTop : 0
   const renderedRowCount = renderRows.length
   const renderedRowsHeight = renderedRowCount * rowMetrics.height
@@ -203,141 +192,214 @@ export const GridTable = ({
         onScroll={handleScroll}
         ref={scrollRef}
       >
-        {columnCount === 0 ? (
-          <div className="grid-table__empty">データがありません</div>
-        ) : (
-          <div className="grid-table__spacer" style={spacerStyle}>
-            <table className="grid-table__table" style={tableStyle}>
-              <colgroup>
+        <div className="grid-table__spacer" style={{
+          width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
+          height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
+        }}>
+          {/* ヘッダー */}
+          <table className="grid-table__table --header">
+            <colgroup>
+              <col style={{ width: rowIndexWidth }} />
+              {spacerColumnWidth > 0 && (
+                <col style={{ width: spacerColumnWidth }} />
+              )}
+              {renderColumnMetrics.map((metric) => (
                 <col
-                  style={{
-                    width: rowIndexWidth,
-                    minWidth: rowIndexWidth,
-                    maxWidth: rowIndexWidth,
-                  }}
+                  key={`col-${metric.id}`}
+                  style={{ width: metric.width, minWidth: metric.width }}
+                />
+              ))}
+            </colgroup>
+            <thead>
+            <tr role="row">
+              <th
+                role="columnheader"
+                className="grid-table__row-index-cell grid-table__row-index-header"
+                style={{　width: rowIndexWidth　}}
+              />
+              {spacerColumnWidth > 0 && (
+                <th
+                  aria-hidden="true"
+                  className="grid-table__column-spacer"
+                  role="presentation"
+                />
+              )}
+              {renderColumns.map((column) => (
+                <th key={`header-${column.id}`} role="columnheader">
+                  {column.header}
+                </th>
+              ))}
+            </tr>
+            </thead>
+          </table>
+        </div>
+
+        <div className="grid-table__spacer" style={{
+          width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
+          height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
+        }}>
+          {/* 行番号 */}
+          <table className="grid-table__table --number">
+            <colgroup>
+              <col style={{　width: rowIndexWidth　}} />
+            </colgroup>
+            <thead>
+            <tr role="row">
+              <th
+                role="columnheader"
+                className="grid-table__row-index-cell grid-table__row-index-header"
+                style={{　width: rowIndexWidth　}}
+              />
+            </tr>
+            </thead>
+            <tbody>
+            {topSpacerHeight > 0 && (
+              <tr
+                aria-hidden="true"
+                className="grid-table__row-spacer"
+                role="presentation"
+              >
+                <td
+                  colSpan={totalRenderedColumns}
+                  role="presentation"
+                  style={{ height: `${topSpacerHeight}px` }}
+                />
+              </tr>
+            )}
+            {renderRows.map((row, rowIndex) => (
+              <tr
+                key={`row-${renderRowStartIndex + rowIndex}`}
+                role="row"
+                style={{ height: `${rowMetrics.height}px` }}
+              >
+                <th
+                  role="gridcell"
+                  className="grid-table__row-index-cell"
+                  style={{　width: rowIndexWidth　}}
+                >
+                  {renderRowStartIndex + rowIndex + 1}
+                </th>
+              </tr>
+            ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="grid-table__spacer" style={{
+          width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
+          height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
+        }}>
+          {/* データ */}
+          <table className="grid-table__table --master">
+            <colgroup>
+              <col style={{ width: rowIndexWidth }} />
+              {spacerColumnWidth > 0 && (
+                <col  style={{ width: spacerColumnWidth }} />
+              )}
+              {renderColumnMetrics.map((metric) => (
+                <col
+                  key={`col-${metric.id}`}
+                  style={{ width: metric.width, minWidth: metric.width }}
+                />
+              ))}
+            </colgroup>
+            <thead>
+              <tr role="row">
+                <th
+                  role="columnheader"
+                  className="grid-table__row-index-cell grid-table__row-index-header"
+                  style={{ width: rowIndexWidth }}
                 />
                 {spacerColumnWidth > 0 && (
-                  <col
-                    style={{
-                      width: spacerColumnWidth,
-                      minWidth: spacerColumnWidth,
-                      maxWidth: spacerColumnWidth,
-                    }}
-                  />
-                )}
-                {renderColumnMetrics.map((metric) => (
-                  <col
-                    key={`col-${metric.id}`}
-                    style={{ width: metric.width, minWidth: metric.width }}
-                  />
-                ))}
-              </colgroup>
-              <thead>
-                <tr role="row">
                   <th
-                    role="columnheader"
-                    className="grid-table__row-index-cell grid-table__row-index-header"
-                    style={{
-                      width: rowIndexWidth,
-                      minWidth: rowIndexWidth,
-                      maxWidth: rowIndexWidth,
-                    }}
+                    aria-hidden="true"
+                    className="grid-table__column-spacer"
+                    role="presentation"
                   />
-                  {spacerColumnWidth > 0 && (
-                    <th
-                      aria-hidden="true"
-                      className="grid-table__column-spacer"
-                      role="presentation"
-                    />
-                  )}
-                  {renderColumns.map((column) => (
-                    <th key={`header-${column.id}`} role="columnheader">
-                      {column.header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rowCount === 0 ? (
-                  <tr
-                    role="row"
-                    className="grid-table__empty-row"
-                  >
-                    <td colSpan={totalRenderedColumns} role="gridcell">
-                      データがありません
-                    </td>
-                  </tr>
-                ) : (
-                  <>
-                    {topSpacerHeight > 0 && (
-                      <tr
-                        aria-hidden="true"
-                        className="grid-table__row-spacer"
-                        role="presentation"
-                      >
-                        <td
-                          colSpan={totalRenderedColumns}
-                          role="presentation"
-                          style={{ height: `${topSpacerHeight}px` }}
-                        />
-                      </tr>
-                    )}
-                    {renderRows.map((row, rowIndex) => (
-                      <tr
-                        key={`row-${renderRowStartIndex + rowIndex}`}
-                        role="row"
-                        style={{ height: `${rowMetrics.height}px` }}
-                      >
-                        <th
-                          role="gridcell"
-                          className="grid-table__row-index-cell"
-                          style={{
-                            width: rowIndexWidth,
-                            minWidth: rowIndexWidth,
-                            maxWidth: rowIndexWidth,
-                          }}
-                        >
-                          {renderRowStartIndex + rowIndex + 1}
-                        </th>
-                        {spacerColumnWidth > 0 && (
-                          <td
-                            aria-hidden="true"
-                            className="grid-table__column-spacer"
-                            role="presentation"
-                          />
-                        )}
-                        {renderColumns.map((column) => {
-                          const cellValue = row[column.id]
-                          return (
-                            <td
-                              key={`${renderRowStartIndex + rowIndex}-${column.id}`}
-                              role="gridcell"
-                            >
-                              {cellValue ?? ''}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
-                    {bottomSpacerHeight > 0 && (
-                      <tr
-                        aria-hidden="true"
-                        className="grid-table__row-spacer"
-                        role="presentation"
-                      >
-                        <td
-                          colSpan={totalRenderedColumns}
-                          role="presentation"
-                          style={{ height: `${bottomSpacerHeight}px` }}
-                        />
-                      </tr>
-                    )}
-                  </>
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                {renderColumns.map((column) => (
+                  <th key={`header-${column.id}`} role="columnheader">
+                    {column.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rowCount === 0 ? (
+                <tr
+                  role="row"
+                  className="grid-table__empty-row"
+                >
+                  <td colSpan={totalRenderedColumns} role="gridcell">
+                    データがありません
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {topSpacerHeight > 0 && (
+                    <tr
+                      aria-hidden="true"
+                      className="grid-table__row-spacer"
+                      role="presentation"
+                    >
+                      <td
+                        colSpan={totalRenderedColumns}
+                        role="presentation"
+                        style={{ height: `${topSpacerHeight}px` }}
+                      />
+                    </tr>
+                  )}
+                  {renderRows.map((row, rowIndex) => (
+                    <tr
+                      key={`row-${renderRowStartIndex + rowIndex}`}
+                      role="row"
+                      style={{ height: `${rowMetrics.height}px` }}
+                    >
+                      <th
+                        role="gridcell"
+                        className="grid-table__row-index-cell"
+                        style={{ width: rowIndexWidth }}
+                      >
+                        {renderRowStartIndex + rowIndex + 1}
+                      </th>
+                      {spacerColumnWidth > 0 && (
+                        <td
+                          aria-hidden="true"
+                          className="grid-table__column-spacer"
+                          role="presentation"
+                        />
+                      )}
+                      {renderColumns.map((column) => {
+                        const cellValue = row[column.id]
+                        return (
+                          <td
+                            key={`${renderRowStartIndex + rowIndex}-${column.id}`}
+                            role="gridcell"
+                          >
+                            {cellValue ?? ''}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                  {bottomSpacerHeight > 0 && (
+                    <tr
+                      aria-hidden="true"
+                      className="grid-table__row-spacer"
+                      role="presentation"
+                    >
+                      <td
+                        colSpan={totalRenderedColumns}
+                        role="presentation"
+                        style={{ height: `${bottomSpacerHeight}px` }}
+                      />
+                    </tr>
+                  )}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   )
