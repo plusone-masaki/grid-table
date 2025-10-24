@@ -5,14 +5,15 @@ import {
   type GridRow,
 } from 'types/grid'
 import GridTable from './components/GridTable'
+import {
+  DEFAULT_COLUMN_COUNT,
+  DEFAULT_ROW_COUNT,
+  MAX_COLUMN_COUNT,
+  MAX_ROW_COUNT,
+  MIN_COLUMN_COUNT,
+  MIN_ROW_COUNT,
+} from './constants/grid-table'
 import './App.css'
-
-const DEFAULT_ROW_COUNT = 120
-const DEFAULT_COLUMN_COUNT = 60
-const MAX_ROW_COUNT = 10000
-const MAX_COLUMN_COUNT = 200
-const MIN_ROW_COUNT = 0
-const MIN_COLUMN_COUNT = 1
 
 type DatasetVariant = 'numbers' | 'text' | 'mixed'
 type HeaderType = ColumnPreset

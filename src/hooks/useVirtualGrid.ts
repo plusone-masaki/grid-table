@@ -5,9 +5,10 @@ import type {
   ViewportRange,
 } from '../types/grid'
 import { useResizeObserver } from './useResizeObserver'
-
-const DEFAULT_OVERSCAN_ROWS = 5
-const DEFAULT_OVERSCAN_COLUMNS = 2
+import {
+  DEFAULT_OVERSCAN_COLUMNS,
+  DEFAULT_OVERSCAN_ROWS,
+} from '../constants/grid-table'
 
 interface VirtualRange {
   rowStart: number

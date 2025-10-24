@@ -4,12 +4,13 @@ import type {
   GridDataset,
   GridCellValue,
 } from '../types/grid'
-
-const DEFAULT_SAMPLE_SIZE = 50
-const MIN_COLUMN_WIDTH = 80
-const MAX_COLUMN_WIDTH = 320
-const CHAR_PIXEL_WIDTH = 8
-const CELL_HORIZONTAL_PADDING = 24
+import {
+  CELL_HORIZONTAL_PADDING,
+  CHAR_PIXEL_WIDTH,
+  DEFAULT_SAMPLE_SIZE,
+  MAX_COLUMN_WIDTH,
+  MIN_COLUMN_WIDTH,
+} from '../constants/grid-table'
 
 export interface ColumnDefinitionInput {
   id: string

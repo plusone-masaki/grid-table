@@ -9,23 +9,18 @@ import {
   type GridDataset,
   type GridRow,
   type GridTableProps,
-  type OverscanConfig,
 } from 'types/grid'
+import {
+  DEFAULT_OVERSCAN,
+  EMPTY_DATASET_FALLBACK,
+  HEADER_HEIGHT,
+  MIN_ROW_INDEX_WIDTH,
+  ROW_INDEX_CHAR_WIDTH,
+  ROW_INDEX_PADDING,
+} from '../constants/grid-table'
 import './GridTable.css'
 
 type ResolvedColumn = ColumnMetricsInput
-
-const DEFAULT_OVERSCAN: OverscanConfig = {
-  rows: 5,
-  columns: 2,
-}
-
-const EMPTY_DATASET_FALLBACK: GridDataset = [['']] as unknown as GridDataset
-
-const ROW_INDEX_CHAR_WIDTH = 9.6
-const ROW_INDEX_PADDING = 24
-const MIN_ROW_INDEX_WIDTH = 48
-const HEADER_HEIGHT = 24
 
 const toColumnHeader = (index: number): string => {
   let result = ''
@@ -79,7 +74,6 @@ export const GridTable = ({
   data: rawData = EMPTY_DATASET_FALLBACK,
   headerType = 'alpha',
   overscan,
-  onViewportChange,
   className,
   style,
 }: GridTableProps) => {
@@ -131,7 +125,6 @@ export const GridTable = ({
     rowHeight: rowMetrics.height,
     overscan: overscan ?? DEFAULT_OVERSCAN,
     scrollRef,
-    onViewportChange,
   })
 
   const rowIndexMaxLength = Math.max(
@@ -195,11 +188,11 @@ export const GridTable = ({
         onScroll={handleScroll}
         ref={scrollRef}
       >
+        {/* ヘッダー */}
         <div className="grid-table__spacer" style={{
           width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
           height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
         }}>
-          {/* ヘッダー */}
           <table className="grid-table__table --header">
             <colgroup>
               <col style={{ width: rowIndexWidth }} />
@@ -207,10 +200,7 @@ export const GridTable = ({
                 <col style={{ width: spacerColumnWidth }} />
               )}
               {renderColumnMetrics.map((metric) => (
-                <col
-                  key={`col-${metric.id}`}
-                  style={{ width: metric.width, minWidth: metric.width }}
-                />
+                <col key={`col-${metric.id}`} style={{ width: metric.width }} />
               ))}
             </colgroup>
             <thead>
@@ -237,11 +227,11 @@ export const GridTable = ({
           </table>
         </div>
 
+        {/* 行番号 */}
         <div className="grid-table__spacer" style={{
           width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
           height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
         }}>
-          {/* 行番号 */}
           <table className="grid-table__table --number">
             <colgroup>
               <col style={{　width: rowIndexWidth　}} />
@@ -269,7 +259,7 @@ export const GridTable = ({
                 />
               </tr>
             )}
-            {renderRows.map((row, rowIndex) => (
+            {renderRows.map((_, rowIndex) => (
               <tr
                 key={`row-${renderRowStartIndex + rowIndex}`}
                 role="row"
@@ -288,22 +278,19 @@ export const GridTable = ({
           </table>
         </div>
 
+        {/* データ */}
         <div className="grid-table__spacer" style={{
           width: contentWidth ? `${contentWidth + rowIndexWidth}px` : '100%',
           height: contentHeight ? `${contentHeight + HEADER_HEIGHT}px` : '100%',
         }}>
-          {/* データ */}
           <table className="grid-table__table --master">
             <colgroup>
               <col style={{ width: rowIndexWidth }} />
               {spacerColumnWidth > 0 && (
-                <col  style={{ width: spacerColumnWidth }} />
+                <col style={{ width: spacerColumnWidth }} />
               )}
               {renderColumnMetrics.map((metric) => (
-                <col
-                  key={`col-${metric.id}`}
-                  style={{ width: metric.width, minWidth: metric.width }}
-                />
+                <col key={`col-${metric.id}`} style={{ width: metric.width }} />
               ))}
             </colgroup>
             <thead>
@@ -372,17 +359,14 @@ export const GridTable = ({
                           role="presentation"
                         />
                       )}
-                      {renderColumns.map((column) => {
-                        const cellValue = row[column.id]
-                        return (
-                          <td
-                            key={`${renderRowStartIndex + rowIndex}-${column.id}`}
-                            role="gridcell"
-                          >
-                            {cellValue ?? ''}
-                          </td>
-                        )
-                      })}
+                      {renderColumns.map((column) => (
+                        <td
+                          key={`${renderRowStartIndex + rowIndex}-${column.id}`}
+                          role="gridcell"
+                        >
+                          {row[column.id] ?? ''}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                   {bottomSpacerHeight > 0 && (
