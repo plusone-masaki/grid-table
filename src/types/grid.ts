@@ -43,6 +43,18 @@ export interface CellCoordinate {
   columnIndex: number
 }
 
+export interface SelectionRange {
+  anchor: CellCoordinate
+  focus: CellCoordinate
+}
+
+export interface NormalizedSelectionRange {
+  topRow: number
+  bottomRow: number
+  leftColumn: number
+  rightColumn: number
+}
+
 export interface GridTableProps {
   data?: GridDataset
   headerType?: ColumnPreset

@@ -17,6 +17,8 @@ import {
   type CellCoordinate,
   type GridRow,
   type GridTableProps,
+  type NormalizedSelectionRange,
+  type SelectionRange,
 } from 'types/grid'
 import {
   DEFAULT_OVERSCAN,
@@ -33,6 +35,11 @@ import CellSelection from './CellSelection'
 import './GridTable.css'
 
 type ResolvedColumn = ColumnMetricsInput
+
+const cloneCellCoordinate = (coordinate: CellCoordinate): CellCoordinate => ({
+  rowIndex: coordinate.rowIndex,
+  columnIndex: coordinate.columnIndex,
+})
 
 const toColumnHeader = (index: number): string => {
   let result = ''
@@ -92,7 +99,17 @@ export const GridTable = ({
   const scrollRef = useRef<HTMLDivElement>(null)
   const data = rawData.length === 0 ? EMPTY_DATASET_FALLBACK : rawData
   const isFallbackData = rawData.length === 0
-  const [selection, setSelection] = useState<CellCoordinate | null>(null)
+  const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(
+    null,
+  )
+  const [anchorCell, setAnchorCell] = useState<CellCoordinate | null>(null)
+  const [activeCell, setActiveCell] = useState<CellCoordinate | null>(null)
+  const pointerStateRef = useRef<{ isSelecting: boolean; pointerId: number | null }>({
+    isSelecting: false,
+    pointerId: null,
+  })
+  const anchorRef = useRef<CellCoordinate | null>(null)
+  const lastFocusRef = useRef<CellCoordinate | null>(null)
 
   const { headerRow, bodyRows } = useMemo(() => {
     if (headerType === 'headers' && rawData.length > 0) {
@@ -193,26 +210,105 @@ export const GridTable = ({
   const selectionEnabled =
     !isFallbackData && rowCount > 0 && columnCount > 0 && columnMetrics.length > 0
 
+  const resetSelectionState = useCallback(() => {
+    setSelectionRange(null)
+    setAnchorCell(null)
+    setActiveCell(null)
+    pointerStateRef.current = {
+      isSelecting: false,
+    pointerId: null,
+  }
+  anchorRef.current = null
+  lastFocusRef.current = null
+}, [])
+
   useEffect(() => {
     if (!selectionEnabled) {
-      if (selection !== null) {
-        setSelection(null)
-      }
+      resetSelectionState()
       return
     }
 
-    if (selection === null) {
+    if (selectionRange === null) {
       return
     }
 
-    const isRowInRange = selection.rowIndex >= 0 && selection.rowIndex < rowCount
-    const isColumnInRange =
-      selection.columnIndex >= 0 && selection.columnIndex < columnCount
+    const { anchor, focus } = selectionRange
+    const rows = [anchor.rowIndex, focus.rowIndex]
+    const columns = [anchor.columnIndex, focus.columnIndex]
+    const isRowInRange = rows.every(
+      (row) => row >= 0 && row < rowCount,
+    )
+    const isColumnInRange = columns.every(
+      (columnIndexValue) =>
+        columnIndexValue >= 0 && columnIndexValue < columnCount,
+    )
 
     if (!isRowInRange || !isColumnInRange) {
-      setSelection(null)
+      resetSelectionState()
     }
-  }, [selectionEnabled, selection, rowCount, columnCount, setSelection])
+  }, [
+    selectionEnabled,
+    selectionRange,
+    rowCount,
+    columnCount,
+    resetSelectionState,
+  ])
+
+  const updateSelectionState = useCallback(
+    (anchor: CellCoordinate, focus: CellCoordinate) => {
+      const anchorClone = cloneCellCoordinate(anchor)
+      const focusClone = cloneCellCoordinate(focus)
+
+      setSelectionRange({
+        anchor: anchorClone,
+        focus: focusClone,
+      })
+      setAnchorCell(anchorClone)
+      setActiveCell(focusClone)
+
+      anchorRef.current = anchorClone
+      lastFocusRef.current = focusClone
+    },
+    [],
+  )
+
+  const resolveCellFromEvent = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>): CellCoordinate | null => {
+      const element = document.elementFromPoint(
+        event.clientX,
+        event.clientY,
+      ) as HTMLElement | null
+
+      if (!element) {
+        return null
+      }
+
+      const cellElement = element.closest(
+        '[data-cell-coordinate="true"]',
+      ) as HTMLElement | null
+
+      if (!cellElement) {
+        return null
+      }
+
+      const rowAttr = cellElement.getAttribute('data-row-index')
+      const columnAttr = cellElement.getAttribute('data-column-index')
+
+      if (rowAttr === null || columnAttr === null) {
+        return null
+      }
+
+      const rowIndex = Number(rowAttr)
+      const columnIndex = Number(columnAttr)
+
+      if (Number.isNaN(rowIndex) || Number.isNaN(columnIndex)) {
+        return null
+      }
+
+      return { rowIndex, columnIndex }
+    },
+    [],
+  )
 
   const handleCellPointerDown = useCallback(
     (
@@ -232,29 +328,218 @@ export const GridTable = ({
         return
       }
 
-      setSelection({
+      const cell: CellCoordinate = {
         rowIndex,
         columnIndex,
-      })
+      }
+
+      const anchor =
+        event.shiftKey && anchorRef.current
+          ? anchorRef.current
+          : cell
+
+      updateSelectionState(anchor, cell)
+      pointerStateRef.current = {
+        isSelecting: true,
+        pointerId: event.pointerId,
+      }
+      lastFocusRef.current = cloneCellCoordinate(cell)
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // 一部環境で setPointerCapture が失敗する可能性があるため握りつぶす
+      }
     },
-    [selectionEnabled],
+    [selectionEnabled, updateSelectionState],
   )
 
-  const selectionBounds = useMemo(() => {
-    if (!selectionEnabled || selection === null) {
+  const handleCellPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      if (!pointerStateRef.current.isSelecting) {
+        return
+      }
+
+      const anchor = anchorRef.current
+      if (!anchor) {
+        return
+      }
+
+      const nextFocus =
+        resolveCellFromEvent(event) ?? lastFocusRef.current
+
+      if (!nextFocus) {
+        return
+      }
+
+      if (
+        lastFocusRef.current &&
+        lastFocusRef.current.rowIndex === nextFocus.rowIndex &&
+        lastFocusRef.current.columnIndex === nextFocus.columnIndex
+      ) {
+        return
+      }
+
+      if (
+        nextFocus.rowIndex < 0 ||
+        nextFocus.rowIndex >= rowCount ||
+        nextFocus.columnIndex < 0 ||
+        nextFocus.columnIndex >= columnCount
+      ) {
+        return
+      }
+
+      lastFocusRef.current = cloneCellCoordinate(nextFocus)
+      updateSelectionState(anchor, nextFocus)
+    },
+    [
+      selectionEnabled,
+      resolveCellFromEvent,
+      rowCount,
+      columnCount,
+      updateSelectionState,
+    ],
+  )
+
+  const releasePointerCapture = (
+    target: EventTarget & HTMLTableCellElement,
+    pointerId: number,
+  ) => {
+    try {
+      if (target.hasPointerCapture(pointerId)) {
+        target.releasePointerCapture(pointerId)
+      }
+    } catch {
+      // releasePointerCapture が失敗しても処理継続
+    }
+  }
+
+  const stopPointerSelection = () => {
+    pointerStateRef.current = {
+      isSelecting: false,
+      pointerId: null,
+    }
+  }
+
+  const handleCellPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      if (!pointerStateRef.current.isSelecting) {
+        return
+      }
+
+      if (
+        pointerStateRef.current.pointerId !== null &&
+        event.pointerId === pointerStateRef.current.pointerId
+      ) {
+        releasePointerCapture(event.currentTarget, event.pointerId)
+      }
+
+      const anchor = anchorRef.current
+      const focus = lastFocusRef.current ?? anchor
+
+      if (anchor && focus) {
+        updateSelectionState(anchor, focus)
+      }
+
+      stopPointerSelection()
+    },
+    [selectionEnabled, updateSelectionState],
+  )
+
+  const handleCellPointerCancel = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      if (!selectionEnabled) {
+        return
+      }
+
+      if (
+        pointerStateRef.current.pointerId !== null &&
+        event.pointerId === pointerStateRef.current.pointerId
+      ) {
+        releasePointerCapture(event.currentTarget, event.pointerId)
+      }
+
+      const anchor = anchorRef.current
+      const focus = lastFocusRef.current ?? anchor
+
+      if (anchor && focus) {
+        updateSelectionState(anchor, focus)
+      }
+
+      stopPointerSelection()
+    },
+    [selectionEnabled, updateSelectionState],
+  )
+
+  const normalizedSelectionRange = useMemo<NormalizedSelectionRange | null>(() => {
+    if (!selectionEnabled || selectionRange === null) {
       return null
     }
 
-    const columnMetric = columnMetrics[selection.columnIndex]
+    const { anchor, focus } = selectionRange
+
+    return {
+      topRow: Math.min(anchor.rowIndex, focus.rowIndex),
+      bottomRow: Math.max(anchor.rowIndex, focus.rowIndex),
+      leftColumn: Math.min(anchor.columnIndex, focus.columnIndex),
+      rightColumn: Math.max(anchor.columnIndex, focus.columnIndex),
+    }
+  }, [selectionEnabled, selectionRange])
+
+  const selectionBounds = useMemo(() => {
+    if (!selectionEnabled || normalizedSelectionRange === null) {
+      return null
+    }
+
+    const { topRow, bottomRow, leftColumn, rightColumn } =
+      normalizedSelectionRange
+
+    const leftMetric = columnMetrics[leftColumn]
+    const rightMetric = columnMetrics[rightColumn]
+
+    if (!leftMetric || !rightMetric) {
+      return null
+    }
+
+    const top = Math.max(HEADER_HEIGHT + topRow * rowMetrics.height + 1, 0)
+    const height = (bottomRow - topRow + 1) * rowMetrics.height
+    const left = Math.max(rowIndexWidth + leftMetric.offset + 1, 0)
+    const width = rightMetric.offset + rightMetric.width - leftMetric.offset
+
+    return {
+      top,
+      left,
+      width,
+      height,
+    }
+  }, [
+    selectionEnabled,
+    normalizedSelectionRange,
+    columnMetrics,
+    rowMetrics.height,
+    rowIndexWidth,
+  ])
+
+  const anchorBounds = useMemo(() => {
+    if (!selectionEnabled || !anchorCell) {
+      return null
+    }
+
+    const columnMetric = columnMetrics[anchorCell.columnIndex]
     if (!columnMetric) {
       return null
     }
 
-    const top = Math.max(
-      HEADER_HEIGHT + selection.rowIndex * rowMetrics.height,
-      0,
-    )
-    const left = Math.max(rowIndexWidth + columnMetric.offset, 0)
+    const top = Math.max(HEADER_HEIGHT + anchorCell.rowIndex * rowMetrics.height + 1, 0)
+    const left = Math.max(rowIndexWidth + columnMetric.offset + 1, 0)
 
     return {
       top,
@@ -262,13 +547,16 @@ export const GridTable = ({
       width: columnMetric.width,
       height: rowMetrics.height,
     }
-  }, [
-    selectionEnabled,
-    selection,
-    columnMetrics,
-    rowMetrics.height,
-    rowIndexWidth,
-  ])
+  }, [selectionEnabled, anchorCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+
+  const isSingleCellSelection = useMemo(() => {
+    if (!normalizedSelectionRange) {
+      return false
+    }
+
+    const { topRow, bottomRow, leftColumn, rightColumn } = normalizedSelectionRange
+    return topRow === bottomRow && leftColumn === rightColumn
+  }, [normalizedSelectionRange])
 
   return (
     <section
@@ -305,18 +593,48 @@ export const GridTable = ({
             spacerColumnWidth={spacerColumnWidth}
             topSpacerHeight={topSpacerHeight}
             totalRenderedColumns={totalRenderedColumns}
-            selection={selectionEnabled ? selection : null}
+            selectionRange={
+              selectionEnabled ? normalizedSelectionRange : null
+            }
+            anchorCell={selectionEnabled ? anchorCell : null}
+            activeCell={selectionEnabled ? activeCell : null}
             onCellPointerDown={handleCellPointerDown}
+            onCellPointerMove={handleCellPointerMove}
+            onCellPointerUp={handleCellPointerUp}
+            onCellPointerCancel={handleCellPointerCancel}
           />
         </div>
 
         {selectionBounds && (
-          <CellSelection
-            top={selectionBounds.top}
-            left={selectionBounds.left}
-            width={selectionBounds.width}
-            height={selectionBounds.height}
-          />
+          <>
+            {!isSingleCellSelection && (
+              <>
+                <CellSelection
+                  variant="fill"
+                  top={selectionBounds.top}
+                  left={selectionBounds.left}
+                  width={selectionBounds.width}
+                  height={selectionBounds.height}
+                />
+                <CellSelection
+                  variant="outline"
+                  top={selectionBounds.top}
+                  left={selectionBounds.left}
+                  width={selectionBounds.width}
+                  height={selectionBounds.height}
+                />
+              </>
+            )}
+            {anchorBounds && (
+              <CellSelection
+                variant="anchor"
+                top={anchorBounds.top}
+                left={anchorBounds.left}
+                width={anchorBounds.width}
+                height={anchorBounds.height}
+              />
+            )}
+          </>
         )}
 
         {/* ヘッダー */}

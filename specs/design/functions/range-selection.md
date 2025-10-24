@@ -24,10 +24,11 @@
 - **選択領域セル集合**：アンカーセル・フォーカスセル間の矩形内に含まれる全セル。
 
 ## 5. UI / 視覚仕様
-- 外枠・塗りつぶしともに `CellSelection` コンポーネントを拡張して描画する。`variant="outline"`（既存スタイル）と `variant="fill"`（背景色 `rgba(37, 99, 235, 0.12)`）で役割を切り替える。
+- `CellSelection` コンポーネントを `variant="fill"`（背景色 `rgba(37, 99, 235, 0.12)`）、`variant="outline"`（1px 枠線）、`variant="anchor"`（2px 枠線）で使い分ける。
+- 範囲矩形には `fill` と `outline` を組み合わせ、ドラッグ開始セル（アンカー）には `anchor` を重ねて単セル選択と同等の枠線を残す。
 - アンカーセル：行インデックスとセル背景を `grid-table__selection-anchor` クラスで強調（背景色 `rgba(37, 99, 235, 0.18)`、太字フォント維持）。
 - 選択中のセルは既存の `aria-selected` に加え、`grid-table__cell--selected` クラスを付与し、背景 `rgba(37, 99, 235, 0.08)` にする。
-- 選択フィル・アウトラインはスクロールコンテナ直下に配置し、`position: absolute; z-index: 18（fill）, 20（outline）` とする。
+- 選択フィル・アウトライン類はスクロールコンテナ直下に配置し、DOM の挿入順で重なりを制御する。
 
 ## 6. インタラクション仕様
 - **ドラッグ範囲選択**：
@@ -56,9 +57,10 @@
 div.grid-table__scroll (relative)
  ├─ CellSelection variant="fill"  (absolute)  ※範囲がある時のみ
  ├─ CellSelection variant="outline" (absolute)
+ ├─ CellSelection variant="anchor" (absolute)
  └─ 既存の grid-table__spacer 群
 ```
-- 塗りつぶし・アウトラインともに `transform: translate(-1px, -1px)` を適用してセル境界と一致させる。
+- 塗りつぶし・アウトライン・アンカーともに `transform: translate(-1px, -1px)` を適用してセル境界と一致させる。
 - 位置・サイズは `SelectionBounds` を用いて一元的に計算し、両方のレイヤーに適用する。
 - 重なり順は DOM の描画順に従う。オーバーレイはデータテーブルより後、ヘッダー・行番号より前に挿入して視覚的階層を制御する。
 - 複数の描画要素を生成する際は `CellSelection` の variant を切り替えて再利用し、ロジック重複を避ける。

@@ -102,6 +102,7 @@
 
 .grid-table__table tbody td {
   background-color: #fff;
+  outline: none;
 }
 
 .grid-table__column-spacer {
@@ -118,6 +119,34 @@
 
 .grid-table__selection-outline {
   background-color: transparent;
+  border: 1px solid #2563eb;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+  pointer-events: none;
+}
+
+.grid-table__selection-fill {
+  background-color: rgba(37, 99, 235, 0.12);
+  border: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+  pointer-events: none;
+}
+
+.grid-table__selection-anchor-outline {
+  background-color: transparent;
   border: 2px solid #2563eb;
   border-radius: 0;
   box-sizing: border-box;
@@ -127,4 +156,17 @@
   top: 0;
   transform: translate(-1px, -1px);
   width: 0;
+  pointer-events: none;
+}
+
+.grid-table__cell--selected {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.grid-table__cell--anchor {
+  background-color: rgba(37, 99, 235, 0.18);
+}
+
+.grid-table__row-index-cell--anchor {
+  background-color: rgba(37, 99, 235, 0.18);
 }

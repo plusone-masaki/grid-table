@@ -2,6 +2,7 @@ import type {
   CellCoordinate,
   ComputedColumnMetrics,
   GridDataset,
+  NormalizedSelectionRange,
 } from 'types/grid'
 import type { PointerEvent } from 'react'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
@@ -19,11 +20,22 @@ interface GridTableBodyProps {
   bottomSpacerHeight: number
   renderRowStartIndex: number
   renderColumnStartIndex: number
-  selection: CellCoordinate | null
+  selectionRange: NormalizedSelectionRange | null
+  anchorCell: CellCoordinate | null
+  activeCell: CellCoordinate | null
   onCellPointerDown?: (
     event: PointerEvent<HTMLTableCellElement>,
     rowIndex: number,
     columnIndex: number,
+  ) => void
+  onCellPointerMove?: (
+    event: PointerEvent<HTMLTableCellElement>,
+  ) => void
+  onCellPointerUp?: (
+    event: PointerEvent<HTMLTableCellElement>,
+  ) => void
+  onCellPointerCancel?: (
+    event: PointerEvent<HTMLTableCellElement>,
   ) => void
 }
 
@@ -40,8 +52,13 @@ const GridTableBody = ({
   bottomSpacerHeight,
   renderRowStartIndex,
   renderColumnStartIndex,
-  selection,
+  selectionRange,
+  anchorCell,
+  activeCell,
   onCellPointerDown,
+  onCellPointerMove,
+  onCellPointerUp,
+  onCellPointerCancel,
 }: GridTableBodyProps) => (
   <table className="grid-table__table --master">
     <colgroup>
@@ -102,17 +119,21 @@ const GridTableBody = ({
           {rows.map((row, rowIndex) => (
             <tr
               key={`row-${renderRowStartIndex + rowIndex}`}
-              role="row"
-              style={{ height: `${rowHeight}px` }}
-            >
-              <th
-                role="gridcell"
-                className="grid-table__row-index-cell"
-                style={{ width: rowIndexWidth }}
-              >
-                {renderRowStartIndex + rowIndex + 1}
-              </th>
-              {spacerColumnWidth > 0 && (
+          role="row"
+          style={{ height: `${rowHeight}px` }}
+        >
+          <th
+            role="gridcell"
+            className={
+              anchorCell?.rowIndex === renderRowStartIndex + rowIndex
+                ? 'grid-table__row-index-cell grid-table__row-index-cell--anchor'
+                : 'grid-table__row-index-cell'
+            }
+            style={{ width: rowIndexWidth }}
+          >
+            {renderRowStartIndex + rowIndex + 1}
+          </th>
+          {spacerColumnWidth > 0 && (
                 <td
                   aria-hidden="true"
                   className="grid-table__column-spacer"
@@ -125,14 +146,36 @@ const GridTableBody = ({
                 const absoluteColumnIndex =
                   renderColumnStartIndex + columnIndex
                 const isSelected =
-                  selection?.rowIndex === absoluteRowIndex &&
-                  selection?.columnIndex === absoluteColumnIndex
+                  selectionRange !== null &&
+                  absoluteRowIndex >= selectionRange.topRow &&
+                  absoluteRowIndex <= selectionRange.bottomRow &&
+                  absoluteColumnIndex >= selectionRange.leftColumn &&
+                  absoluteColumnIndex <= selectionRange.rightColumn
+                const isAnchor =
+                  anchorCell?.rowIndex === absoluteRowIndex &&
+                  anchorCell?.columnIndex === absoluteColumnIndex
+                const isActive =
+                  activeCell?.rowIndex === absoluteRowIndex &&
+                  activeCell?.columnIndex === absoluteColumnIndex
+
+                const cellClassName = [
+                  isSelected ? 'grid-table__cell--selected' : '',
+                  isAnchor ? 'grid-table__cell--anchor' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
 
                 return (
                   <td
                     key={`${renderRowStartIndex + rowIndex}-${column.id}`}
                     role="gridcell"
+                    className={cellClassName}
                     aria-selected={isSelected ? 'true' : undefined}
+                    data-cell-coordinate="true"
+                    data-row-index={absoluteRowIndex}
+                    data-column-index={absoluteColumnIndex}
+                    data-active-cell={isActive ? 'true' : undefined}
+                    tabIndex={-1}
                     onPointerDown={
                       onCellPointerDown
                         ? (event) =>
@@ -141,6 +184,21 @@ const GridTableBody = ({
                               absoluteRowIndex,
                               absoluteColumnIndex,
                             )
+                        : undefined
+                    }
+                    onPointerMove={
+                      onCellPointerMove
+                        ? (event) => onCellPointerMove(event)
+                        : undefined
+                    }
+                    onPointerUp={
+                      onCellPointerUp
+                        ? (event) => onCellPointerUp(event)
+                        : undefined
+                    }
+                    onPointerCancel={
+                      onCellPointerCancel
+                        ? (event) => onCellPointerCancel(event)
                         : undefined
                     }
                   >
