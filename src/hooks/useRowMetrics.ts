@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import type { ComputedRowMetrics, GridDataset } from '../types/grid'
 
 const DEFAULT_SAMPLE_SIZE = 50
-const BASE_ROW_HEIGHT = 32
-const MIN_ROW_HEIGHT = 24
+const BASE_ROW_HEIGHT = 22
+const MIN_ROW_HEIGHT = 22
 const MAX_ROW_HEIGHT = 80
 const CHAR_PER_LINE = 30
 const EXTRA_LINE_HEIGHT = 12

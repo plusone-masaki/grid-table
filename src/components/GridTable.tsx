@@ -20,7 +20,7 @@ const DEFAULT_OVERSCAN: OverscanConfig = {
   columns: 2,
 }
 
-const ROW_INDEX_CHAR_WIDTH = 8
+const ROW_INDEX_CHAR_WIDTH = 9.6
 const ROW_INDEX_PADDING = 24
 const MIN_ROW_INDEX_WIDTH = 48
 const HEADER_HEIGHT = 24
