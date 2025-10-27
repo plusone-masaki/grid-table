@@ -14,7 +14,10 @@ export interface ComputedColumnMetrics {
 }
 
 export interface ComputedRowMetrics {
-  height: number
+  defaultHeight: number
+  heights: number[]
+  offsets: number[]
+  totalHeight: number
 }
 
 export interface OverscanConfig {

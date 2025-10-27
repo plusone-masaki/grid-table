@@ -6,7 +6,6 @@ import {
   useState,
 } from 'react'
 import type {
-  ChangeEvent as ReactChangeEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
 import useColumnMetrics, {
@@ -103,6 +102,8 @@ export const GridTable = ({
   style,
 }: GridTableProps) => {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLTextAreaElement | null>(null)
+  const editingValueRef = useRef('')
   const { headerRow, bodyRows } = useMemo(() => {
     if (headerType === 'headers' && rawData.length > 0) {
       const [firstRow, ...restRows] = rawData
@@ -146,6 +147,11 @@ export const GridTable = ({
   const [internalRows, setInternalRows] = useState<GridDataset>(bodyRows)
   const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null)
   const [editingValue, setEditingValue] = useState('')
+  const [recentSampleRowIndex, setRecentSampleRowIndex] = useState<number | null>(null)
+  const prioritySampleRows = useMemo(
+    () => (recentSampleRowIndex === null ? undefined : [recentSampleRowIndex]),
+    [recentSampleRowIndex],
+  )
   const previousBodyRowsRef = useRef(bodyRows)
   useEffect(() => {
     if (previousBodyRowsRef.current === bodyRows) {
@@ -156,16 +162,25 @@ export const GridTable = ({
     setInternalRows(bodyRows)
     setEditingCell(null)
     setEditingValue('')
+    editingValueRef.current = ''
+    setRecentSampleRowIndex(null)
   }, [bodyRows])
 
   const columnMetrics = useColumnMetrics({
     columns: resolvedColumns,
     data: internalRows,
+    priorityRowIndices: prioritySampleRows,
   })
   const rowMetrics = useRowMetrics({
     columns: resolvedColumns.map(({ id, header }) => ({ id, header })),
     data: internalRows,
+    priorityRowIndices: prioritySampleRows,
   })
+  const {
+    heights: rowHeights,
+    offsets: rowOffsets,
+    defaultHeight: defaultRowHeight,
+  } = rowMetrics
 
   const {
     range,
@@ -175,7 +190,8 @@ export const GridTable = ({
   } = useVirtualGrid({
     rowCount: internalRows.length,
     columnMetrics,
-    rowHeight: rowMetrics.height,
+    rowHeights: rowMetrics.heights,
+    defaultRowHeight: rowMetrics.defaultHeight,
     overscan: overscan ?? DEFAULT_OVERSCAN,
     scrollRef,
   })
@@ -205,8 +221,7 @@ export const GridTable = ({
 
   const spacerWidth = range.offsetLeft
   const spacerHeight = range.offsetTop
-  const totalRenderedColumns =
-    1 + (spacerWidth > 0 ? 1 : 0) + visibleColumns.length
+  const totalRenderedColumns = 1 + (spacerWidth > 0 ? 1 : 0) + visibleColumns.length
 
   const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
@@ -236,8 +251,7 @@ export const GridTable = ({
       (row) => row >= 0 && row < rowCount,
     )
     const isColumnInRange = columns.every(
-      (columnIndexValue) =>
-        columnIndexValue >= 0 && columnIndexValue < columnCount,
+      (columnIndexValue) => columnIndexValue >= 0 && columnIndexValue < columnCount,
     )
 
     if (!isRowInRange || !isColumnInRange) {
@@ -317,7 +331,9 @@ export const GridTable = ({
         }
 
         const currentValue = targetRow[column.id]
-        const nextValue = editingValue
+        const domValue = editorRef.current ? editorRef.current.value : null
+        const nextValue = domValue !== null ? domValue : editingValue
+        editingValueRef.current = nextValue
         if (String(currentValue ?? '') === nextValue) {
           return prevRows
         }
@@ -332,14 +348,17 @@ export const GridTable = ({
 
       const selectionTarget = options?.nextSelection ?? editingCell
 
+      setRecentSampleRowIndex(editingCell.rowIndex)
+
       setEditingCell(null)
       setEditingValue('')
+      editingValueRef.current = ''
 
       if (!options?.skipSelectionUpdate && selectionTarget) {
         updateSelectionState(selectionTarget, selectionTarget)
       }
     },
-    [editingCell, editingValue, resolvedColumns, updateSelectionState],
+    [editingCell, editingValue, resolvedColumns, updateSelectionState, editorRef],
   )
 
   const startEditing = useCallback(
@@ -361,6 +380,7 @@ export const GridTable = ({
       updateSelectionState(cell, cell)
       setEditingCell(cell)
       setEditingValue(value)
+      editingValueRef.current = value
     },
     [resolvedColumns, internalRows, updateSelectionState],
   )
@@ -370,13 +390,6 @@ export const GridTable = ({
       startEditing({ rowIndex, columnIndex })
     },
     [startEditing],
-  )
-
-  const handleEditorChange = useCallback(
-    (event: ReactChangeEvent<HTMLTextAreaElement>) => {
-      setEditingValue(event.target.value)
-    },
-    [],
   )
 
   const handleEditorBlur = useCallback(() => {
@@ -585,6 +598,12 @@ export const GridTable = ({
     }
   }, [selectionRange])
 
+  const hasRangeSelection = normalizedSelectionRange !== null &&
+    (
+      normalizedSelectionRange.topRow !== normalizedSelectionRange.bottomRow ||
+      normalizedSelectionRange.leftColumn !== normalizedSelectionRange.rightColumn
+    )
+
   const selectionBounds = useMemo<SelectionRectangle | null>(() => {
     if (normalizedSelectionRange === null) {
       return null
@@ -600,11 +619,15 @@ export const GridTable = ({
       return null
     }
 
+    const topOffset = rowOffsets[topRow] ?? topRow * defaultRowHeight
+    const bottomOffsetBase = rowOffsets[bottomRow] ?? bottomRow * defaultRowHeight
+    const bottomOffset =
+      bottomOffsetBase + (rowHeights[bottomRow] ?? defaultRowHeight)
     const top = Math.max(
-      HEADER_HEIGHT + topRow * rowMetrics.height + SELECTION_BORDER_OFFSET,
+      HEADER_HEIGHT + topOffset + SELECTION_BORDER_OFFSET,
       0,
     )
-    const height = (bottomRow - topRow + 1) * rowMetrics.height
+    const height = Math.max(bottomOffset - topOffset, defaultRowHeight)
     const left = Math.max(
       rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET,
       0,
@@ -620,7 +643,9 @@ export const GridTable = ({
   }, [
     normalizedSelectionRange,
     columnMetrics,
-    rowMetrics.height,
+    rowHeights,
+    rowOffsets,
+    defaultRowHeight,
     rowIndexWidth,
   ])
 
@@ -634,8 +659,12 @@ export const GridTable = ({
       return null
     }
 
+    const rowTop =
+      rowOffsets[editingCell.rowIndex] ??
+      editingCell.rowIndex * defaultRowHeight
+    const rowHeight = rowHeights[editingCell.rowIndex] ?? defaultRowHeight
     const top = Math.max(
-      HEADER_HEIGHT + editingCell.rowIndex * rowMetrics.height,
+      HEADER_HEIGHT + rowTop,
       0,
     )
     const left = Math.max(rowIndexWidth + columnMetric.offset, 0)
@@ -644,9 +673,21 @@ export const GridTable = ({
       top,
       left,
       width: columnMetric.width,
-      height: rowMetrics.height,
+      height: rowHeight,
     }
-  }, [editingCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+  }, [
+    editingCell,
+    columnMetrics,
+    rowHeights,
+    rowOffsets,
+    defaultRowHeight,
+    rowIndexWidth,
+  ])
+
+  const editorSessionKey = useMemo(
+    () => (editingCell ? `${editingCell.rowIndex}-${editingCell.columnIndex}` : 'inactive'),
+    [editingCell],
+  )
 
   const anchorBounds = useMemo<SelectionRectangle | null>(() => {
     if (!anchorCell) {
@@ -658,8 +699,12 @@ export const GridTable = ({
       return null
     }
 
+    const rowTop =
+      rowOffsets[anchorCell.rowIndex] ??
+      anchorCell.rowIndex * defaultRowHeight
+    const rowHeight = rowHeights[anchorCell.rowIndex] ?? defaultRowHeight
     const top = Math.max(
-      HEADER_HEIGHT + anchorCell.rowIndex * rowMetrics.height + SELECTION_BORDER_OFFSET,
+      HEADER_HEIGHT + rowTop + SELECTION_BORDER_OFFSET,
       0,
     )
     const left = Math.max(
@@ -671,9 +716,16 @@ export const GridTable = ({
       top,
       left,
       width: columnMetric.width,
-      height: rowMetrics.height,
+      height: rowHeight,
     }
-  }, [anchorCell, columnMetrics, rowMetrics.height, rowIndexWidth])
+  }, [
+    anchorCell,
+    columnMetrics,
+    rowHeights,
+    rowOffsets,
+    defaultRowHeight,
+    rowIndexWidth,
+  ])
 
   const handleGridScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
@@ -727,7 +779,8 @@ export const GridTable = ({
           renderRowStartIndex={range.rowStart}
           renderColumnStartIndex={range.columnStart}
           rowCount={rowCount}
-          rowHeight={rowMetrics.height}
+          rowHeights={rowHeights}
+          defaultRowHeight={defaultRowHeight}
           rowIndexWidth={rowIndexWidth}
           rows={visibleRows}
           selectionRange={normalizedSelectionRange}
@@ -746,14 +799,21 @@ export const GridTable = ({
           editingBounds={editingBounds}
           editorValue={editingValue}
           onEditorBlur={handleEditorBlur}
-          onEditorChange={handleEditorChange}
           selectionBounds={selectionBounds}
+          hasRangeSelection={hasRangeSelection}
+          editorRef={editorRef}
+          editorSessionKey={editorSessionKey}
+          onEditorInput={(value) => {
+            editingValueRef.current = value
+            setEditingValue((prev) => (prev === value ? prev : value))
+          }}
         />
 
         <GridTableRowIndex
           renderRowStartIndex={range.rowStart}
           rows={visibleRows}
-          rowHeight={rowMetrics.height}
+          rowHeights={rowHeights}
+          defaultRowHeight={defaultRowHeight}
           rowIndexWidth={rowIndexWidth}
           spacerHeight={spacerHeight}
           contentHeight={contentHeight}

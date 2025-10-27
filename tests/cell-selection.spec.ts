@@ -175,4 +175,34 @@ test.describe('セル編集', () => {
     await waitForGrid(page)
     await expect(targetCell).toHaveText('スクロール確定')
   })
+
+  test('文字幅が現在の幅を超えた場合のみエディタ幅が広がる', async ({ page }) => {
+    await page.goto('/')
+    await waitForGrid(page)
+
+    const targetCell = getNthCell(page, 1, 0)
+    await targetCell.dblclick()
+
+    const editor = page.locator('.grid-table__cell-editor')
+    await expect(editor).toBeVisible()
+
+    await editor.fill('')
+    await expect(editor).toHaveValue('')
+
+    const baselineWidth = await editor.evaluate((node) => node.getBoundingClientRect().width)
+
+    await editor.type('1')
+    const widthAfterSingleChar = await editor.evaluate((node) => node.getBoundingClientRect().width)
+
+    expect(widthAfterSingleChar).toBeLessThanOrEqual(baselineWidth + 1)
+
+    await editor.type('2345678901234567890123456789012345678901234567890')
+    const widthAfterLongInput = await editor.evaluate((node) =>
+      node.getBoundingClientRect().width,
+    )
+
+    expect(widthAfterLongInput).toBeGreaterThan(widthAfterSingleChar)
+
+    await page.keyboard.press('Enter')
+  })
 })

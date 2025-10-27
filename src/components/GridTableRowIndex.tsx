@@ -3,7 +3,8 @@ import { HEADER_HEIGHT } from '../constants/grid-table';
 
 export interface GridTableRowIndexProps {
   rows: GridDataset
-  rowHeight: number
+  rowHeights: number[]
+  defaultRowHeight: number
   rowIndexWidth: number
   spacerHeight: number
   contentWidth: number
@@ -14,7 +15,8 @@ export interface GridTableRowIndexProps {
 
 const GridTableRowIndex = ({
   rows,
-  rowHeight,
+  rowHeights,
+  defaultRowHeight,
   rowIndexWidth,
   spacerHeight,
   contentWidth,
@@ -60,21 +62,27 @@ const GridTableRowIndex = ({
             />
           </tr>
         )}
-        {rows.map((_, rowIndex) => (
-          <tr
-            key={`row-${renderRowStartIndex + rowIndex}`}
-            role="row"
-            style={{ height: `${rowHeight}px` }}
-          >
-            <th
-              role="gridcell"
-              className="grid-table__row-index-cell"
-              style={{ width: rowIndexWidth }}
+        {rows.map((_, rowIndex) => {
+          const absoluteRowIndex = renderRowStartIndex + rowIndex
+          const currentRowHeight =
+            rowHeights[absoluteRowIndex] ?? defaultRowHeight
+
+          return (
+            <tr
+              key={`row-${absoluteRowIndex}`}
+              role="row"
+              style={{ height: `${currentRowHeight}px` }}
             >
-              {renderRowStartIndex + rowIndex + 1}
-            </th>
-          </tr>
-        ))}
+              <th
+                role="gridcell"
+                className="grid-table__row-index-cell"
+                style={{ width: rowIndexWidth }}
+              >
+                {absoluteRowIndex + 1}
+              </th>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   </div>

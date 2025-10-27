@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import type {
   ComputedColumnMetrics,
   OverscanConfig,
@@ -19,10 +26,16 @@ interface VirtualRange {
   offsetLeft: number
 }
 
+interface ScrollPosition {
+  top: number
+  left: number
+}
+
 interface UseVirtualGridParams {
   rowCount: number
   columnMetrics: ComputedColumnMetrics[]
-  rowHeight: number
+  rowHeights: number[]
+  defaultRowHeight: number
   overscan?: OverscanConfig
   scrollRef: RefObject<HTMLDivElement | null>
   onViewportChange?: (viewport: ViewportRange) => void
@@ -30,6 +43,17 @@ interface UseVirtualGridParams {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max)
+
+const areRangesEqual = (a: VirtualRange, b: VirtualRange) =>
+  a.rowStart === b.rowStart &&
+  a.rowEnd === b.rowEnd &&
+  a.columnStart === b.columnStart &&
+  a.columnEnd === b.columnEnd &&
+  a.offsetTop === b.offsetTop &&
+  a.offsetLeft === b.offsetLeft
+
+const areScrollPositionsEqual = (a: ScrollPosition, b: ScrollPosition) =>
+  a.top === b.top && a.left === b.left
 
 const findColumnIndex = (
   metrics: ComputedColumnMetrics[],
@@ -65,7 +89,8 @@ export interface VirtualGridState {
 export const useVirtualGrid = ({
   rowCount,
   columnMetrics,
-  rowHeight,
+  rowHeights,
+  defaultRowHeight,
   overscan,
   scrollRef,
   onViewportChange,
@@ -82,7 +107,12 @@ export const useVirtualGrid = ({
     offsetTop: 0,
     offsetLeft: 0,
   })
-  const [scrollPosition, setScrollPosition] = useState({ top: 0, left: 0 })
+  const [scrollPosition, setScrollPosition] = useState<ScrollPosition>({
+    top: 0,
+    left: 0,
+  })
+  const rangeRef = useRef(range)
+  const scrollPositionRef = useRef(scrollPosition)
   const contentWidth = useMemo(() => {
     if (columnMetrics.length === 0) {
       return 0
@@ -91,14 +121,80 @@ export const useVirtualGrid = ({
     return lastMetric.offset + lastMetric.width
   }, [columnMetrics])
 
-  const contentHeight = useMemo(
-    () => rowCount * rowHeight,
-    [rowCount, rowHeight],
+  const {
+    effectiveRowHeights,
+    rowOffsets,
+    contentHeight,
+  } = useMemo(() => {
+    if (rowCount === 0) {
+      return {
+        effectiveRowHeights: [] as number[],
+        rowOffsets: [] as number[],
+        contentHeight: 0,
+      }
+    }
+
+    const normalizedHeights: number[] = new Array(rowCount)
+    const fallbackHeight =
+      Number.isFinite(defaultRowHeight) && defaultRowHeight > 0
+        ? defaultRowHeight
+        : 1
+
+    for (let index = 0; index < rowCount; index += 1) {
+      const height = rowHeights[index]
+      normalizedHeights[index] =
+        Number.isFinite(height) && height > 0 ? height : fallbackHeight
+    }
+
+    const offsets: number[] = new Array(rowCount)
+    let runningOffset = 0
+    for (let index = 0; index < rowCount; index += 1) {
+      offsets[index] = runningOffset
+      runningOffset += normalizedHeights[index]
+    }
+
+    return {
+      effectiveRowHeights: normalizedHeights,
+      rowOffsets: offsets,
+      contentHeight: runningOffset,
+    }
+  }, [rowCount, rowHeights, defaultRowHeight])
+
+  const findRowIndex = useCallback(
+    (value: number): number => {
+      if (rowCount === 0) {
+        return 0
+      }
+
+      let low = 0
+      let high = rowCount - 1
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2)
+        const rowStart = rowOffsets[mid]
+        const rowEnd = rowStart + effectiveRowHeights[mid]
+
+        if (value < rowStart) {
+          high = mid - 1
+        } else if (value >= rowEnd) {
+          low = mid + 1
+        } else {
+          return mid
+        }
+      }
+
+      return clamp(low, 0, Math.max(rowCount - 1, 0))
+    },
+    [rowCount, rowOffsets, effectiveRowHeights],
   )
 
   const computeRange = useCallback(
     (scrollTop: number, scrollLeft: number): VirtualRange => {
-      if (rowCount === 0 || columnMetrics.length === 0) {
+      if (
+        rowCount === 0 ||
+        columnMetrics.length === 0 ||
+        effectiveRowHeights.length === 0
+      ) {
         return {
           rowStart: 0,
           rowEnd: 0,
@@ -109,21 +205,38 @@ export const useVirtualGrid = ({
         }
       }
 
-      const viewportRowCapacity =
-        viewportSize.height > 0
-          ? Math.ceil(viewportSize.height / rowHeight)
-          : rowCount
+      const viewportHeight =
+        viewportSize.height > 0 ? viewportSize.height : contentHeight
+      const maxScrollTop = Math.max(contentHeight - viewportHeight, 0)
+      const clampedScrollTop = clamp(scrollTop, 0, maxScrollTop)
+      const viewportBottom = clampedScrollTop + viewportHeight
+      const baseRowStart = findRowIndex(clampedScrollTop)
 
-      const tentativeRowStart = Math.floor(scrollTop / rowHeight)
-      const rowStart = clamp(tentativeRowStart - overscanRows, 0, rowCount - 1)
-      const rowEnd = clamp(
-        rowStart + viewportRowCapacity + overscanRows * 2,
-        0,
+      let baseRowEnd = baseRowStart
+      let coveredBottom =
+        rowOffsets[baseRowStart] + effectiveRowHeights[baseRowStart]
+
+      while (
+        baseRowEnd + 1 < rowCount &&
+        coveredBottom < viewportBottom
+      ) {
+        baseRowEnd += 1
+        coveredBottom =
+          rowOffsets[baseRowEnd] + effectiveRowHeights[baseRowEnd]
+      }
+
+      const baseRowEndExclusive = Math.min(baseRowEnd + 1, rowCount)
+      const overscannedStart = Math.max(baseRowStart - overscanRows, 0)
+      const overscannedEnd = Math.min(
+        Math.max(baseRowEndExclusive + overscanRows, overscannedStart + 1),
         rowCount,
       )
 
+      const offsetTop = rowOffsets[overscannedStart] ?? 0
+
       const columnStart = findColumnIndex(columnMetrics, scrollLeft)
-      const viewportWidth = viewportSize.width > 0 ? viewportSize.width : contentWidth
+      const viewportWidth =
+        viewportSize.width > 0 ? viewportSize.width : contentWidth
       const viewportRight = scrollLeft + viewportWidth
 
       let columnEnd = columnStart
@@ -138,21 +251,23 @@ export const useVirtualGrid = ({
 
       const baseEnd = clamp(columnEnd + 1, columnStart + 1, columnMetrics.length)
 
-      const overscannedStart = Math.max(columnStart - overscanColumns, 0)
-      const overscannedEnd = clamp(
+      const overscannedColumnStart = Math.max(columnStart - overscanColumns, 0)
+      const overscannedColumnEnd = clamp(
         baseEnd + overscanColumns,
-        overscannedStart + 1,
+        overscannedColumnStart + 1,
         columnMetrics.length,
       )
 
       const isAtStart = scrollLeft <= 0
       const isAtEnd = viewportRight >= contentWidth
 
-      const effectiveStart = isAtStart ? 0 : overscannedStart
-      const effectiveEnd = isAtEnd ? columnMetrics.length : overscannedEnd
+      const effectiveColumnStart = isAtStart ? 0 : overscannedColumnStart
+      const effectiveColumnEnd = isAtEnd
+        ? columnMetrics.length
+        : overscannedColumnEnd
 
       const maxOffset = Math.max(contentWidth - viewportWidth, 0)
-      const firstMetric = columnMetrics[effectiveStart]
+      const firstMetric = columnMetrics[effectiveColumnStart]
       let offsetLeft = firstMetric ? firstMetric.offset : 0
 
       if (isAtStart) {
@@ -162,20 +277,23 @@ export const useVirtualGrid = ({
       offsetLeft = clamp(offsetLeft, 0, maxOffset)
 
       return {
-        rowStart,
-        rowEnd,
-        columnStart: effectiveStart,
-        columnEnd: effectiveEnd,
-        offsetTop: rowStart * rowHeight,
+        rowStart: overscannedStart,
+        rowEnd: overscannedEnd,
+        columnStart: effectiveColumnStart,
+        columnEnd: effectiveColumnEnd,
+        offsetTop,
         offsetLeft: Math.max(offsetLeft, 0),
       }
     },
     [
       rowCount,
       columnMetrics,
+      effectiveRowHeights,
       viewportSize.height,
       viewportSize.width,
-      rowHeight,
+      contentHeight,
+      findRowIndex,
+      rowOffsets,
       overscanRows,
       overscanColumns,
       contentWidth,
@@ -200,15 +318,49 @@ export const useVirtualGrid = ({
     [onViewportChange],
   )
 
+  const updateViewportState = useCallback(
+    (nextRange: VirtualRange, scrollTop: number, scrollLeft: number) => {
+      const nextScrollPosition: ScrollPosition = {
+        top: scrollTop,
+        left: scrollLeft,
+      }
+
+      const hasRangeChanged = !areRangesEqual(rangeRef.current, nextRange)
+      const hasScrollChanged = !areScrollPositionsEqual(
+        scrollPositionRef.current,
+        nextScrollPosition,
+      )
+
+      if (!hasRangeChanged && !hasScrollChanged) {
+        return false
+      }
+
+      if (hasRangeChanged) {
+        rangeRef.current = nextRange
+        setRange(nextRange)
+      }
+
+      if (hasScrollChanged) {
+        scrollPositionRef.current = nextScrollPosition
+        setScrollPosition(nextScrollPosition)
+      }
+
+      return true
+    },
+    [setRange, setScrollPosition],
+  )
+
   const handleScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       const { scrollTop, scrollLeft } = event.currentTarget
       const nextRange = computeRange(scrollTop, scrollLeft)
-      setRange(nextRange)
-      emitViewportChange(nextRange, scrollTop, scrollLeft)
-      setScrollPosition({ top: scrollTop, left: scrollLeft })
+      const didUpdate = updateViewportState(nextRange, scrollTop, scrollLeft)
+
+      if (didUpdate) {
+        emitViewportChange(nextRange, scrollTop, scrollLeft)
+      }
     },
-    [computeRange, emitViewportChange],
+    [computeRange, emitViewportChange, updateViewportState],
   )
 
   useEffect(() => {
@@ -217,12 +369,21 @@ export const useVirtualGrid = ({
       return
     }
 
-    const nextRange = computeRange(node.scrollTop, node.scrollLeft)
-    setRange(nextRange)
-    emitViewportChange(nextRange, node.scrollTop, node.scrollLeft)
-    setScrollPosition({ top: node.scrollTop, left: node.scrollLeft })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computeRange, scrollRef, viewportSize.height, viewportSize.width])
+    const { scrollTop, scrollLeft } = node
+    const nextRange = computeRange(scrollTop, scrollLeft)
+    const didUpdate = updateViewportState(nextRange, scrollTop, scrollLeft)
+
+    if (didUpdate) {
+      emitViewportChange(nextRange, scrollTop, scrollLeft)
+    }
+  }, [
+    computeRange,
+    emitViewportChange,
+    scrollRef,
+    updateViewportState,
+    viewportSize.height,
+    viewportSize.width,
+  ])
 
   return {
     range,

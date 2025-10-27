@@ -22,6 +22,7 @@ interface UseColumnMetricsParams {
   columns: ColumnDefinitionInput[]
   data: GridDataset
   sampleSize?: number
+  priorityRowIndices?: number[]
 }
 
 const clamp = (value: number, min: number, max: number) =>
@@ -33,16 +34,41 @@ const estimateTextWidth = (value: GridCellValue): number => {
   }
 
   const text = String(value)
-  return text.length * CHAR_PIXEL_WIDTH + CELL_HORIZONTAL_PADDING
+  const longestLineLength = text
+    .split('\n')
+    .reduce((maxLength, line) => Math.max(maxLength, line.length), 0)
+
+  return longestLineLength * CHAR_PIXEL_WIDTH + CELL_HORIZONTAL_PADDING
 }
 
 export const useColumnMetrics = ({
   columns,
   data,
   sampleSize = DEFAULT_SAMPLE_SIZE,
+  priorityRowIndices,
 }: UseColumnMetricsParams): ComputedColumnMetrics[] =>
   useMemo(() => {
-    const sampleRows = data.slice(0, sampleSize)
+    const sampleIndices: number[] = []
+    const maxInitialSample = Math.min(sampleSize, data.length)
+
+    for (let index = 0; index < maxInitialSample; index += 1) {
+      sampleIndices.push(index)
+    }
+
+    if (priorityRowIndices) {
+      priorityRowIndices.forEach((rowIndex) => {
+        if (
+          Number.isInteger(rowIndex) &&
+          rowIndex >= 0 &&
+          rowIndex < data.length &&
+          !sampleIndices.includes(rowIndex)
+        ) {
+          sampleIndices.push(rowIndex)
+        }
+      })
+    }
+
+    const sampleRows = sampleIndices.map((index) => data[index]).filter(Boolean)
     let offset = 0
 
     return columns.map((column) => {
@@ -63,6 +89,6 @@ export const useColumnMetrics = ({
       offset += width
       return metric
     })
-  }, [columns, data, sampleSize])
+  }, [columns, data, sampleSize, priorityRowIndices])
 
 export default useColumnMetrics

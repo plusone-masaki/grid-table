@@ -13,7 +13,8 @@ export interface GridTableBodyProps {
   columns: ColumnDefinitionInput[]
   columnMetrics: ComputedColumnMetrics[]
   rowCount: number
-  rowHeight: number
+  rowHeights: number[]
+  defaultRowHeight: number
   rowIndexWidth: number
   spacerWidth: number
   totalRenderedColumns: number
@@ -47,7 +48,8 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   columns,
   columnMetrics,
   rowCount,
-  rowHeight,
+  rowHeights,
+  defaultRowHeight,
   rowIndexWidth,
   spacerWidth,
   totalRenderedColumns,
@@ -134,12 +136,14 @@ const GridTableBody: FC<GridTableBodyProps> = ({
             )}
             {rows.map((row, rowIndex) => {
               const absoluteRowIndex = renderRowStartIndex + rowIndex
+              const currentRowHeight =
+                rowHeights[absoluteRowIndex] ?? defaultRowHeight
 
               return (
                 <tr
                   key={`row-${absoluteRowIndex}`}
                   role="row"
-                  style={{ height: `${rowHeight}px` }}
+                  style={{ height: `${currentRowHeight}px` }}
                 >
                   <th
                     role="gridcell"

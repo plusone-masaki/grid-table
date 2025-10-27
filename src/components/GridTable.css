@@ -103,6 +103,7 @@
 .grid-table__table tbody td {
   background-color: #fff;
   outline: none;
+  white-space: pre-wrap;
 }
 
 .grid-table__column-spacer {
@@ -181,8 +182,10 @@
   font-size: 14px;
   line-height: 1.4;
   outline: none;
-  padding: 4px;
+  overflow-y: hidden;
+  padding: 0 3px;
   position: absolute;
   resize: none;
+  white-space: pre-wrap;
   z-index: 30;
 }
