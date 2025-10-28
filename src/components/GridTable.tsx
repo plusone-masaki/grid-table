@@ -246,14 +246,16 @@ export const GridTable = ({
     }
 
     const { anchor, focus } = selectionRange
-    const rows = [anchor.rowIndex, focus.rowIndex]
-    const columns = [anchor.columnIndex, focus.columnIndex]
-    const isRowInRange = rows.every(
-      (row) => row >= 0 && row < rowCount,
-    )
-    const isColumnInRange = columns.every(
-      (columnIndexValue) => columnIndexValue >= 0 && columnIndexValue < columnCount,
-    )
+    const isRowInRange =
+      anchor.rowIndex >= 0 &&
+      anchor.rowIndex < rowCount &&
+      focus.rowIndex >= 0 &&
+      focus.rowIndex < rowCount
+    const isColumnInRange =
+      anchor.columnIndex >= 0 &&
+      anchor.columnIndex < columnCount &&
+      focus.columnIndex >= 0 &&
+      focus.columnIndex < columnCount
 
     if (!isRowInRange || !isColumnInRange) {
       resetSelectionState()

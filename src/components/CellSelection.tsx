@@ -64,8 +64,7 @@ const CellSelection = ({
     const baseWidth = editingBounds.width
     const baseHeight = editingBounds.height
 
-    const previousSize = editorSizeRef.current
-    const previousHeight = previousSize ? previousSize.height : baseHeight
+    const previousHeight = editorSizeRef.current?.height ?? baseHeight
 
     textarea.style.minWidth = `${baseWidth}px`
     textarea.style.maxWidth = ''
@@ -154,11 +153,11 @@ const CellSelection = ({
         const content = line.length > 0 ? line : ' '
         const metrics = canvasContext.measureText(content)
         const baseLineWidth = metrics.width
-        const spacingCompensation =
-          letterSpacing > 0 && content.length > 1
+        const totalLineWidth =
+          baseLineWidth +
+          (letterSpacing > 0 && content.length > 1
             ? letterSpacing * (content.length - 1)
-            : 0
-        const totalLineWidth = baseLineWidth + spacingCompensation
+            : 0)
         if (totalLineWidth > longestLineWidth) {
           longestLineWidth = totalLineWidth
         }
@@ -279,20 +278,18 @@ const CellSelection = ({
       onEditorInput(value)
     }
 
-    const executeResize = () => {
-      computeEditorSize()
-    }
-
     if (typeof window !== 'undefined') {
       if (resizeFrameRef.current !== null) {
         window.cancelAnimationFrame(resizeFrameRef.current)
       }
-      resizeFrameRef.current = window.requestAnimationFrame(executeResize)
-      executeResize()
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        computeEditorSize()
+      })
+      computeEditorSize()
       return
     }
 
-    executeResize()
+    computeEditorSize()
   }, [computeEditorSize, onEditorInput])
 
   return (

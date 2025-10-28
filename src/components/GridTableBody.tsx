@@ -135,14 +135,13 @@ const GridTableBody: FC<GridTableBodyProps> = ({
             )}
             {rows.map((row, rowIndex) => {
               const absoluteRowIndex = renderRowStartIndex + rowIndex
-              const currentRowHeight =
-                rowHeights[absoluteRowIndex] ?? defaultRowHeight
-
               return (
                 <tr
                   key={`row-${absoluteRowIndex}`}
                   role="row"
-                  style={{ height: `${currentRowHeight}px` }}
+                  style={{
+                    height: `${rowHeights[absoluteRowIndex] ?? defaultRowHeight}px`,
+                  }}
                 >
                   <th
                     role="gridcell"
