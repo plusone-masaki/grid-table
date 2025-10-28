@@ -87,7 +87,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
         {columnMetrics.map((metric) => (
           <col
             key={`col-${metric.id}`}
-            style={{ width: metric.width, minWidth: metric.width }}
+            style={{ width: metric.width }}
           />
         ))}
       </colgroup>
@@ -96,7 +96,6 @@ const GridTableBody: FC<GridTableBodyProps> = ({
           <th
             role="columnheader"
             className="grid-table__row-index-cell grid-table__row-index-header"
-            style={{ width: rowIndexWidth }}
           />
           {spacerWidth > 0 && (
             <th
@@ -152,7 +151,6 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                         ? 'grid-table__row-index-cell grid-table__row-index-cell--anchor'
                         : 'grid-table__row-index-cell'
                     }
-                    style={{ width: rowIndexWidth }}
                   >
                     {absoluteRowIndex + 1}
                   </th>
@@ -165,6 +163,11 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                   )}
                   {columns.map((column, columnIndex) => {
                     const cellValue = row[column.id]
+                    const cellText =
+                      cellValue === null || cellValue === undefined
+                        ? ''
+                        : String(cellValue)
+                    const isMultiline = /\r?\n/.test(cellText)
                     const absoluteColumnIndex =
                       renderColumnStartIndex + columnIndex
                     const isSelected =
@@ -183,6 +186,9 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                     const cellClassName = [
                       isSelected ? 'grid-table__cell--selected' : '',
                       isAnchor ? 'grid-table__cell--anchor' : '',
+                      isMultiline
+                        ? 'grid-table__cell--multiline'
+                        : 'grid-table__cell--singleline',
                     ]
                       .filter(Boolean)
                       .join(' ') || undefined
@@ -233,7 +239,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                             : undefined
                         }
                       >
-                        {cellValue ?? ''}
+                        {cellText}
                       </td>
                     )
                   })}

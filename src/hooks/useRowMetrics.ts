@@ -1,11 +1,17 @@
 import { useMemo } from 'react'
-import type { ComputedRowMetrics, GridDataset } from 'types/grid'
+import type {
+  ComputedColumnMetrics,
+  ComputedRowMetrics,
+  GridDataset,
+  GridCellValue,
+} from 'types/grid'
 import {
   BASE_ROW_HEIGHT,
-  CHAR_PER_LINE,
+  CHAR_PIXEL_WIDTH,
   DEFAULT_SAMPLE_SIZE,
   EXTRA_LINE_HEIGHT,
   MAX_ROW_HEIGHT,
+  MIN_COLUMN_WIDTH,
   MIN_ROW_HEIGHT,
 } from '../constants/grid-table'
 
@@ -16,6 +22,7 @@ interface ColumnDefinitionInput {
 
 interface UseRowMetricsParams {
   columns: ColumnDefinitionInput[]
+  columnMetrics: ComputedColumnMetrics[]
   data: GridDataset
   sampleSize?: number
   priorityRowIndices?: number[]
@@ -30,36 +37,175 @@ const computeHeightFromLineCount = (lineCount: number): number => {
   return clamp(computedHeight, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT)
 }
 
-const computeWrappedLineCount = (value: string): number => {
-  if (value.length === 0) {
+const MIN_CONTENT_WIDTH = 8
+const CELL_CONTENT_GUTTER = 8
+
+const FALLBACK_FONT =
+  '14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+
+let measurementElement: HTMLSpanElement | null = null
+let measurementStyleSignature = ''
+let horizontalPadding = CELL_CONTENT_GUTTER
+
+const ensureMeasurementElement = (): HTMLSpanElement | null => {
+  if (typeof document === 'undefined') {
+    return null
+  }
+
+  if (!measurementElement) {
+    const element = document.createElement('span')
+    element.setAttribute('data-grid-table-measure', 'true')
+    element.style.position = 'absolute'
+    element.style.visibility = 'hidden'
+    element.style.pointerEvents = 'none'
+    element.style.userSelect = 'none'
+    element.style.whiteSpace = 'pre'
+    element.style.padding = '0'
+    element.style.margin = '0'
+    element.style.border = '0'
+    element.style.top = '-9999px'
+    element.style.left = '-9999px'
+    element.style.font = FALLBACK_FONT
+    element.style.letterSpacing = 'normal'
+    element.style.fontKerning = 'auto'
+    document.body.appendChild(element)
+    measurementElement = element
+    measurementStyleSignature = ''
+  }
+
+  if (!measurementElement) {
+    return null
+  }
+
+  if (typeof window !== 'undefined') {
+    const referenceCell = document.querySelector(
+      '.grid-table__table tbody td',
+    ) as HTMLElement | null
+
+    if (referenceCell) {
+      const computed = window.getComputedStyle(referenceCell)
+      const signature = [
+        computed.font,
+        computed.letterSpacing,
+        computed.fontKerning,
+        computed.paddingLeft,
+        computed.paddingRight,
+      ].join('|')
+
+      if (signature !== measurementStyleSignature) {
+        measurementElement.style.font =
+          computed.font && computed.font !== 'normal'
+            ? computed.font
+            : FALLBACK_FONT
+        measurementElement.style.letterSpacing =
+          computed.letterSpacing ?? 'normal'
+        measurementElement.style.fontKerning =
+          computed.fontKerning ?? 'auto'
+
+        const paddingLeft =
+          Number.parseFloat(computed.paddingLeft || '0') || 0
+        const paddingRight =
+          Number.parseFloat(computed.paddingRight || '0') || 0
+        const resolvedPadding = paddingLeft + paddingRight
+        horizontalPadding =
+          Number.isFinite(resolvedPadding) && resolvedPadding >= 0
+            ? resolvedPadding
+            : CELL_CONTENT_GUTTER
+
+        measurementStyleSignature = signature
+      }
+    }
+  }
+
+  return measurementElement
+}
+
+const measureSegmentWidth = (
+  segment: string,
+): number => {
+  if (!segment) {
+    return 0
+  }
+
+  const probe = ensureMeasurementElement()
+  if (probe) {
+    probe.textContent = segment.replace(/\s/g, (char) =>
+      char === ' ' ? '\u00a0' : char,
+    )
+    const width = probe.getBoundingClientRect().width
+    probe.textContent = ''
+    if (Number.isFinite(width)) {
+      return width
+    }
+  }
+
+  return segment.length * CHAR_PIXEL_WIDTH
+}
+
+const computeMultilineDisplayLines = (
+  value: string,
+  metric: ComputedColumnMetrics | undefined,
+): number => {
+  ensureMeasurementElement()
+
+  const segments = value.split(/\r?\n/)
+  const columnWidth = metric?.width ?? MIN_COLUMN_WIDTH
+  const availableWidth = Math.max(
+    columnWidth - horizontalPadding,
+    MIN_CONTENT_WIDTH,
+  )
+
+  let totalLines = 0
+  for (const segment of segments) {
+    if (segment.length === 0) {
+      totalLines += 1
+      continue
+    }
+
+    const segmentWidth = measureSegmentWidth(segment)
+    const wrappedLines = Math.max(
+      1,
+      Math.ceil(segmentWidth / availableWidth),
+    )
+    totalLines += wrappedLines
+  }
+
+  return Math.max(totalLines, 1)
+}
+
+const computeCellLineCount = (
+  value: GridCellValue,
+  metric: ComputedColumnMetrics | undefined,
+): number => {
+  const text =
+    value === null || value === undefined ? '' : String(value)
+
+  if (text.length === 0) {
     return 1
   }
 
-  return value
-    .split('\n')
-    .reduce((lineCount, segment) => {
-      const normalizedLength = segment.length
-      const wrappedLines = Math.max(
-        1,
-        Math.ceil(normalizedLength / CHAR_PER_LINE),
-      )
-      return lineCount + wrappedLines
-    }, 0)
+  const hasExplicitBreak = /\r?\n/.test(text)
+  if (!hasExplicitBreak) {
+    return 1
+  }
+
+  return computeMultilineDisplayLines(text, metric)
 }
 
 export const useRowMetrics = ({
   columns,
+  columnMetrics,
   data,
   sampleSize = DEFAULT_SAMPLE_SIZE,
   priorityRowIndices,
 }: UseRowMetricsParams): ComputedRowMetrics =>
   useMemo(() => {
     const headerMaxLines = columns.reduce((maxLines, column) => {
-      const columnLines = computeWrappedLineCount(column.header)
+      const columnLines = column.header
+        ? column.header.split(/\r?\n/).length
+        : 1
       return Math.max(maxLines, columnLines)
     }, 1)
-    const headerBaselineHeight = computeHeightFromLineCount(headerMaxLines)
-
     const sampleIndices: number[] = []
     const maxInitialSample = Math.min(sampleSize, data.length)
 
@@ -83,12 +229,11 @@ export const useRowMetrics = ({
     const sampleRows = sampleIndices.map((index) => data[index]).filter(Boolean)
 
     const bodyMaxLines = sampleRows.reduce((outerMax, row) => {
-      const rowLines = columns.reduce((rowMax, column) => {
-        const cellValue = row[column.id]
-        const cellText = cellValue === null || cellValue === undefined
-          ? ''
-          : String(cellValue)
-        const cellLines = computeWrappedLineCount(cellText)
+      const rowLines = columns.reduce((rowMax, column, columnIndex) => {
+        const cellLines = computeCellLineCount(
+          row[column.id],
+          columnMetrics[columnIndex],
+        )
         return Math.max(rowMax, cellLines)
       }, 1)
 
@@ -112,12 +257,11 @@ export const useRowMetrics = ({
         return dominantHeight
       }
 
-      const rowLines = columns.reduce((rowMax, column) => {
-        const cellValue = row[column.id]
-        const cellText = cellValue === null || cellValue === undefined
-          ? ''
-          : String(cellValue)
-        const cellLines = computeWrappedLineCount(cellText)
+      const rowLines = columns.reduce((rowMax, column, columnIndex) => {
+        const cellLines = computeCellLineCount(
+          row[column.id],
+          columnMetrics[columnIndex],
+        )
         return Math.max(rowMax, cellLines)
       }, 1)
 
@@ -138,6 +282,6 @@ export const useRowMetrics = ({
       offsets: rowOffsets,
       totalHeight: runningOffset,
     }
-  }, [columns, data, sampleSize, priorityRowIndices])
+  }, [columns, columnMetrics, data, sampleSize, priorityRowIndices])
 
 export default useRowMetrics

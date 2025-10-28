@@ -173,6 +173,7 @@ export const GridTable = ({
   })
   const rowMetrics = useRowMetrics({
     columns: resolvedColumns.map(({ id, header }) => ({ id, header })),
+    columnMetrics,
     data: internalRows,
     priorityRowIndices: prioritySampleRows,
   })

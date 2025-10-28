@@ -81,6 +81,7 @@
   padding: 0 4px;
   user-select: none;
   white-space: nowrap;
+  width: auto;
 }
 
 .grid-table__row-index-cell {
@@ -103,7 +104,18 @@
 .grid-table__table tbody td {
   background-color: #fff;
   outline: none;
+  white-space: pre;
+  overflow: hidden;
+}
+
+.grid-table__cell--multiline {
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  text-overflow: clip;
+}
+
+.grid-table__cell--singleline {
+  white-space: pre;
 }
 
 .grid-table__column-spacer {
@@ -182,7 +194,7 @@
   font-size: 14px;
   line-height: 1.4;
   outline: none;
-  overflow-y: hidden;
+  overflow: hidden;
   padding: 0 3px;
   position: absolute;
   resize: none;
