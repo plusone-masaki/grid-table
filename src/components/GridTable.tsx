@@ -27,6 +27,7 @@ import {
   DEFAULT_OVERSCAN,
   EMPTY_DATASET_FALLBACK,
   HEADER_HEIGHT,
+  MIN_ROW_HEIGHT,
   MIN_ROW_INDEX_WIDTH,
   ROW_INDEX_CHAR_WIDTH,
   ROW_INDEX_PADDING,
@@ -177,11 +178,9 @@ export const GridTable = ({
     data: internalRows,
     priorityRowIndices: prioritySampleRows,
   })
-  const {
-    heights: rowHeights,
-    offsets: rowOffsets,
-    defaultHeight: defaultRowHeight,
-  } = rowMetrics
+  const { heights: rowHeights, offsets: rowOffsets } = rowMetrics
+  const fallbackRowHeight =
+    rowHeights.find((height) => Number.isFinite(height) && height > 0) ?? MIN_ROW_HEIGHT
 
   const {
     range,
@@ -192,7 +191,6 @@ export const GridTable = ({
     rowCount: internalRows.length,
     columnMetrics,
     rowHeights: rowMetrics.heights,
-    defaultRowHeight: rowMetrics.defaultHeight,
     overscan: overscan ?? DEFAULT_OVERSCAN,
     scrollRef,
   })
@@ -622,15 +620,15 @@ export const GridTable = ({
       return null
     }
 
-    const topOffset = rowOffsets[topRow] ?? topRow * defaultRowHeight
-    const bottomOffsetBase = rowOffsets[bottomRow] ?? bottomRow * defaultRowHeight
+    const topOffset = rowOffsets[topRow] ?? topRow * fallbackRowHeight
+    const bottomOffsetBase = rowOffsets[bottomRow] ?? bottomRow * fallbackRowHeight
     const bottomOffset =
-      bottomOffsetBase + (rowHeights[bottomRow] ?? defaultRowHeight)
+      bottomOffsetBase + (rowHeights[bottomRow] ?? fallbackRowHeight)
     const top = Math.max(
       HEADER_HEIGHT + topOffset + SELECTION_BORDER_OFFSET,
       0,
     )
-    const height = Math.max(bottomOffset - topOffset, defaultRowHeight)
+    const height = Math.max(bottomOffset - topOffset, fallbackRowHeight)
     const left = Math.max(
       rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET,
       0,
@@ -648,7 +646,7 @@ export const GridTable = ({
     columnMetrics,
     rowHeights,
     rowOffsets,
-    defaultRowHeight,
+    fallbackRowHeight,
     rowIndexWidth,
   ])
 
@@ -664,8 +662,8 @@ export const GridTable = ({
 
     const rowTop =
       rowOffsets[editingCell.rowIndex] ??
-      editingCell.rowIndex * defaultRowHeight
-    const rowHeight = rowHeights[editingCell.rowIndex] ?? defaultRowHeight
+      editingCell.rowIndex * fallbackRowHeight
+    const rowHeight = rowHeights[editingCell.rowIndex] ?? fallbackRowHeight
     const top = Math.max(
       HEADER_HEIGHT + rowTop,
       0,
@@ -683,7 +681,7 @@ export const GridTable = ({
     columnMetrics,
     rowHeights,
     rowOffsets,
-    defaultRowHeight,
+    fallbackRowHeight,
     rowIndexWidth,
   ])
 
@@ -704,8 +702,8 @@ export const GridTable = ({
 
     const rowTop =
       rowOffsets[anchorCell.rowIndex] ??
-      anchorCell.rowIndex * defaultRowHeight
-    const rowHeight = rowHeights[anchorCell.rowIndex] ?? defaultRowHeight
+      anchorCell.rowIndex * fallbackRowHeight
+    const rowHeight = rowHeights[anchorCell.rowIndex] ?? fallbackRowHeight
     const top = Math.max(
       HEADER_HEIGHT + rowTop + SELECTION_BORDER_OFFSET,
       0,
@@ -726,7 +724,7 @@ export const GridTable = ({
     columnMetrics,
     rowHeights,
     rowOffsets,
-    defaultRowHeight,
+    fallbackRowHeight,
     rowIndexWidth,
   ])
 
@@ -783,7 +781,6 @@ export const GridTable = ({
           renderColumnStartIndex={range.columnStart}
           rowCount={rowCount}
           rowHeights={rowHeights}
-          defaultRowHeight={defaultRowHeight}
           rowIndexWidth={rowIndexWidth}
           rows={visibleRows}
           selectionRange={normalizedSelectionRange}
@@ -816,7 +813,6 @@ export const GridTable = ({
           renderRowStartIndex={range.rowStart}
           rows={visibleRows}
           rowHeights={rowHeights}
-          defaultRowHeight={defaultRowHeight}
           rowIndexWidth={rowIndexWidth}
           spacerHeight={spacerHeight}
           contentHeight={contentHeight}

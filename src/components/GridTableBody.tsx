@@ -4,7 +4,7 @@ import type {
   GridDataset,
   NormalizedSelectionRange,
 } from 'types/grid'
-import { HEADER_HEIGHT } from '../constants/grid-table'
+import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table'
 import type { FC, PointerEvent } from 'react'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
@@ -14,7 +14,6 @@ export interface GridTableBodyProps {
   columnMetrics: ComputedColumnMetrics[]
   rowCount: number
   rowHeights: number[]
-  defaultRowHeight: number
   rowIndexWidth: number
   spacerWidth: number
   totalRenderedColumns: number
@@ -49,7 +48,6 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   columnMetrics,
   rowCount,
   rowHeights,
-  defaultRowHeight,
   rowIndexWidth,
   spacerWidth,
   totalRenderedColumns,
@@ -66,190 +64,199 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   onCellPointerUp,
   onCellPointerCancel,
   onCellDoubleClick,
-}) => (
-  <div
-    className="grid-table__spacer"
-    style={{
-      width: contentWidth
-        ? `${contentWidth + rowIndexWidth}px`
-        : '100%',
-      height: contentHeight
-        ? `${contentHeight + HEADER_HEIGHT}px`
-        : '100%',
-    }}
-  >
-    <table className="grid-table__table --master">
-      <colgroup>
-        <col style={{ width: rowIndexWidth }} />
-        {spacerWidth > 0 && (
-          <col style={{ width: spacerWidth }} />
-        )}
-        {columnMetrics.map((metric) => (
-          <col
-            key={`col-${metric.id}`}
-            style={{ width: metric.width }}
-          />
-        ))}
-      </colgroup>
-      <thead>
-        <tr role="row">
-          <th
-            role="columnheader"
-            className="grid-table__row-index-cell grid-table__row-index-header"
-          />
+}) => {
+  const fallbackRowHeight =
+    rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
+    MIN_ROW_HEIGHT
+
+  return (
+    <div
+      className="grid-table__spacer"
+      style={{
+        width: contentWidth
+          ? `${contentWidth + rowIndexWidth}px`
+          : '100%',
+        height: contentHeight
+          ? `${contentHeight + HEADER_HEIGHT}px`
+          : '100%',
+      }}
+    >
+      <table className="grid-table__table --master">
+        <colgroup>
+          <col style={{ width: rowIndexWidth }} />
           {spacerWidth > 0 && (
-            <th
-              aria-hidden="true"
-              className="grid-table__column-spacer"
-              role="presentation"
-            />
+            <col style={{ width: spacerWidth }} />
           )}
-          {columns.map((column) => (
-            <th key={`header-${column.id}`} role="columnheader">
-              {column.header}
-            </th>
+          {columnMetrics.map((metric) => (
+            <col
+              key={`col-${metric.id}`}
+              style={{ width: metric.width }}
+            />
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rowCount === 0 ? (
-          <tr role="row" className="grid-table__empty-row">
-            <td colSpan={totalRenderedColumns} role="gridcell">
-              データがありません
-            </td>
-          </tr>
-        ) : (
-          <>
-            {spacerHeight > 0 && (
-              <tr
+        </colgroup>
+        <thead>
+          <tr role="row">
+            <th
+              role="columnheader"
+              className="grid-table__row-index-cell grid-table__row-index-header"
+            />
+            {spacerWidth > 0 && (
+              <th
                 aria-hidden="true"
-                className="grid-table__row-spacer"
+                className="grid-table__column-spacer"
                 role="presentation"
-              >
-                <td
-                  colSpan={totalRenderedColumns}
-                  role="presentation"
-                  style={{ height: `${spacerHeight}px` }}
-                />
-              </tr>
+              />
             )}
-            {rows.map((row, rowIndex) => {
-              const absoluteRowIndex = renderRowStartIndex + rowIndex
-              return (
+            {columns.map((column) => (
+              <th key={`header-${column.id}`} role="columnheader">
+                {column.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rowCount === 0 ? (
+            <tr role="row" className="grid-table__empty-row">
+              <td colSpan={totalRenderedColumns} role="gridcell">
+                データがありません
+              </td>
+            </tr>
+          ) : (
+            <>
+              {spacerHeight > 0 && (
                 <tr
-                  key={`row-${absoluteRowIndex}`}
-                  role="row"
-                  style={{
-                    height: `${rowHeights[absoluteRowIndex] ?? defaultRowHeight}px`,
-                  }}
+                  aria-hidden="true"
+                  className="grid-table__row-spacer"
+                  role="presentation"
                 >
-                  <th
-                    role="gridcell"
-                    className={
-                      anchorCell?.rowIndex === absoluteRowIndex
-                        ? 'grid-table__row-index-cell grid-table__row-index-cell--anchor'
-                        : 'grid-table__row-index-cell'
-                    }
-                  >
-                    {absoluteRowIndex + 1}
-                  </th>
-                  {spacerWidth > 0 && (
-                    <td
-                      aria-hidden="true"
-                      className="grid-table__column-spacer"
-                      role="presentation"
-                    />
-                  )}
-                  {columns.map((column, columnIndex) => {
-                    const cellValue = row[column.id]
-                    const cellText =
-                      cellValue === null || cellValue === undefined
-                        ? ''
-                        : String(cellValue)
-                    const isMultiline = /\r?\n/.test(cellText)
-                    const absoluteColumnIndex =
-                      renderColumnStartIndex + columnIndex
-                    const isSelected =
-                      selectionRange !== null &&
-                      absoluteRowIndex >= selectionRange.topRow &&
-                      absoluteRowIndex <= selectionRange.bottomRow &&
-                      absoluteColumnIndex >= selectionRange.leftColumn &&
-                      absoluteColumnIndex <= selectionRange.rightColumn
-                    const isAnchor =
-                      anchorCell?.rowIndex === absoluteRowIndex &&
-                      anchorCell?.columnIndex === absoluteColumnIndex
-                    const isActive =
-                      activeCell?.rowIndex === absoluteRowIndex &&
-                      activeCell?.columnIndex === absoluteColumnIndex
-
-                    const cellClassName = [
-                      isSelected ? 'grid-table__cell--selected' : '',
-                      isAnchor ? 'grid-table__cell--anchor' : '',
-                      isMultiline
-                        ? 'grid-table__cell--multiline'
-                        : 'grid-table__cell--singleline',
-                    ]
-                      .filter(Boolean)
-                      .join(' ') || undefined
-
-                    return (
-                      <td
-                        key={`${absoluteRowIndex}-${column.id}`}
-                        role="gridcell"
-                        className={cellClassName}
-                        aria-selected={isSelected ? 'true' : undefined}
-                        data-cell-coordinate="true"
-                        data-row-index={absoluteRowIndex}
-                        data-column-index={absoluteColumnIndex}
-                        data-active-cell={isActive ? 'true' : undefined}
-                        tabIndex={-1}
-                        onPointerDown={
-                          onCellPointerDown
-                            ? (event) =>
-                                onCellPointerDown(
-                                  event,
-                                  absoluteRowIndex,
-                                  absoluteColumnIndex,
-                                )
-                            : undefined
-                        }
-                        onPointerMove={
-                          onCellPointerMove
-                            ? (event) => onCellPointerMove(event)
-                            : undefined
-                        }
-                        onPointerUp={
-                          onCellPointerUp
-                            ? (event) => onCellPointerUp(event)
-                            : undefined
-                        }
-                        onPointerCancel={
-                          onCellPointerCancel
-                            ? (event) => onCellPointerCancel(event)
-                            : undefined
-                        }
-                        onDoubleClick={
-                          onCellDoubleClick
-                            ? () =>
-                                onCellDoubleClick(
-                                  absoluteRowIndex,
-                                  absoluteColumnIndex,
-                                )
-                            : undefined
-                        }
-                      >
-                        {cellText}
-                      </td>
-                    )
-                  })}
+                  <td
+                    colSpan={totalRenderedColumns}
+                    role="presentation"
+                    style={{ height: `${spacerHeight}px` }}
+                  />
                 </tr>
-              )
-            })}
-          </>
-        )}
-      </tbody>
-    </table>
-  </div>
-)
+              )}
+              {rows.map((row, rowIndex) => {
+                const absoluteRowIndex = renderRowStartIndex + rowIndex
+                const currentRowHeight =
+                  rowHeights[absoluteRowIndex] ?? fallbackRowHeight
+                return (
+                  <tr
+                    key={`row-${absoluteRowIndex}`}
+                    role="row"
+                    style={{
+                      height: `${currentRowHeight}px`,
+                    }}
+                  >
+                    <th
+                      role="gridcell"
+                      className={
+                        anchorCell?.rowIndex === absoluteRowIndex
+                          ? 'grid-table__row-index-cell grid-table__row-index-cell--anchor'
+                          : 'grid-table__row-index-cell'
+                      }
+                    >
+                      {absoluteRowIndex + 1}
+                    </th>
+                    {spacerWidth > 0 && (
+                      <td
+                        aria-hidden="true"
+                        className="grid-table__column-spacer"
+                        role="presentation"
+                      />
+                    )}
+                    {columns.map((column, columnIndex) => {
+                      const cellValue = row[column.id]
+                      const cellText =
+                        cellValue === null || cellValue === undefined
+                          ? ''
+                          : String(cellValue)
+                      const isMultiline = /\r?\n/.test(cellText)
+                      const absoluteColumnIndex =
+                        renderColumnStartIndex + columnIndex
+                      const isSelected =
+                        selectionRange !== null &&
+                        absoluteRowIndex >= selectionRange.topRow &&
+                        absoluteRowIndex <= selectionRange.bottomRow &&
+                        absoluteColumnIndex >= selectionRange.leftColumn &&
+                        absoluteColumnIndex <= selectionRange.rightColumn
+                      const isAnchor =
+                        anchorCell?.rowIndex === absoluteRowIndex &&
+                        anchorCell?.columnIndex === absoluteColumnIndex
+                      const isActive =
+                        activeCell?.rowIndex === absoluteRowIndex &&
+                        activeCell?.columnIndex === absoluteColumnIndex
+
+                      const cellClassName = [
+                        isSelected ? 'grid-table__cell--selected' : '',
+                        isAnchor ? 'grid-table__cell--anchor' : '',
+                        isMultiline
+                          ? 'grid-table__cell--multiline'
+                          : 'grid-table__cell--singleline',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+
+                      return (
+                        <td
+                          key={`${absoluteRowIndex}-${column.id}`}
+                          role="gridcell"
+                          className={cellClassName}
+                          aria-selected={isSelected ? 'true' : undefined}
+                          data-cell-coordinate="true"
+                          data-row-index={absoluteRowIndex}
+                          data-column-index={absoluteColumnIndex}
+                          data-active-cell={isActive ? 'true' : undefined}
+                          tabIndex={-1}
+                          onPointerDown={
+                            onCellPointerDown
+                              ? (event) =>
+                                  onCellPointerDown(
+                                    event,
+                                    absoluteRowIndex,
+                                    absoluteColumnIndex,
+                                  )
+                              : undefined
+                          }
+                          onPointerMove={
+                            onCellPointerMove
+                              ? (event) => onCellPointerMove(event)
+                              : undefined
+                          }
+                          onPointerUp={
+                            onCellPointerUp
+                              ? (event) => onCellPointerUp(event)
+                              : undefined
+                          }
+                          onPointerCancel={
+                            onCellPointerCancel
+                              ? (event) => onCellPointerCancel(event)
+                              : undefined
+                          }
+                          onDoubleClick={
+                            onCellDoubleClick
+                              ? () =>
+                                  onCellDoubleClick(
+                                    absoluteRowIndex,
+                                    absoluteColumnIndex,
+                                  )
+                              : undefined
+                          }
+                        >
+                          {cellText}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+}
 
 export default GridTableBody

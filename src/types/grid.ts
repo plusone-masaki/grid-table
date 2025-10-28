@@ -14,7 +14,6 @@ export interface ComputedColumnMetrics {
 }
 
 export interface ComputedRowMetrics {
-  defaultHeight: number
   heights: number[]
   offsets: number[]
   totalHeight: number

@@ -66,7 +66,6 @@ const CellSelection = ({
 
     const previousHeight = editorSizeRef.current?.height ?? baseHeight
 
-    textarea.style.minWidth = `${baseWidth}px`
     textarea.style.maxWidth = ''
     textarea.style.width = `${baseWidth}px`
     textarea.style.height = `${baseHeight}px`
@@ -174,17 +173,14 @@ const CellSelection = ({
     textarea.style.width = `${nextWidth}px`
 
     let nextHeight = baseHeight
-    textarea.style.height = `${baseHeight}px`
 
     const shouldAllowVerticalGrowth =
       textarea.value.includes('\n') ||
       (shouldExpand && nextWidth >= availableWidth - 0.5)
     if (shouldAllowVerticalGrowth) {
-      const originalHeight = textarea.style.height
       textarea.style.height = 'auto'
       const measuredHeight = Math.ceil(textarea.scrollHeight)
       nextHeight = Math.max(baseHeight, measuredHeight, previousHeight)
-      textarea.style.height = originalHeight
     }
 
     textarea.style.height = `${nextHeight}px`

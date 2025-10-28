@@ -15,6 +15,7 @@ import { useResizeObserver } from './useResizeObserver'
 import {
   DEFAULT_OVERSCAN_COLUMNS,
   DEFAULT_OVERSCAN_ROWS,
+  MIN_ROW_HEIGHT,
 } from '../constants/grid-table'
 
 interface VirtualRange {
@@ -35,7 +36,6 @@ interface UseVirtualGridParams {
   rowCount: number
   columnMetrics: ComputedColumnMetrics[]
   rowHeights: number[]
-  defaultRowHeight: number
   overscan?: OverscanConfig
   scrollRef: RefObject<HTMLDivElement | null>
   onViewportChange?: (viewport: ViewportRange) => void
@@ -90,7 +90,6 @@ export const useVirtualGrid = ({
   rowCount,
   columnMetrics,
   rowHeights,
-  defaultRowHeight,
   overscan,
   scrollRef,
   onViewportChange,
@@ -136,9 +135,8 @@ export const useVirtualGrid = ({
 
     const normalizedHeights: number[] = new Array(rowCount)
     const fallbackHeight =
-      Number.isFinite(defaultRowHeight) && defaultRowHeight > 0
-        ? defaultRowHeight
-        : 1
+      rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
+      MIN_ROW_HEIGHT
 
     for (let index = 0; index < rowCount; index += 1) {
       const height = rowHeights[index]
@@ -158,7 +156,7 @@ export const useVirtualGrid = ({
       rowOffsets: offsets,
       contentHeight: runningOffset,
     }
-  }, [rowCount, rowHeights, defaultRowHeight])
+  }, [rowCount, rowHeights])
 
   const findRowIndex = useCallback(
     (value: number): number => {

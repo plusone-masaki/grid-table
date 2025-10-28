@@ -21,10 +21,7 @@ const GridTableHeader = ({
         <col style={{ width: spacerWidth }} />
       )}
       {columnMetrics.map((metric) => (
-        <col
-          key={`col-${metric.id}`}
-          style={{ width: metric.width, minWidth: metric.width }}
-        />
+        <col key={`col-${metric.id}`} style={{ width: metric.width }} />
       ))}
     </colgroup>
     <thead>
@@ -32,7 +29,6 @@ const GridTableHeader = ({
         <th
           role="columnheader"
           className="grid-table__row-index-cell grid-table__row-index-header"
-          style={{ width: rowIndexWidth }}
         />
         {spacerWidth > 0 && (
           <th

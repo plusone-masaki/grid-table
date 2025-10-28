@@ -1,10 +1,9 @@
 import type { GridDataset } from 'types/grid'
-import { HEADER_HEIGHT } from '../constants/grid-table';
+import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table';
 
 export interface GridTableRowIndexProps {
   rows: GridDataset
   rowHeights: number[]
-  defaultRowHeight: number
   rowIndexWidth: number
   spacerHeight: number
   contentWidth: number
@@ -16,75 +15,80 @@ export interface GridTableRowIndexProps {
 const GridTableRowIndex = ({
   rows,
   rowHeights,
-  defaultRowHeight,
   rowIndexWidth,
   spacerHeight,
   contentWidth,
   contentHeight,
   totalRenderedColumns,
   renderRowStartIndex,
-}: GridTableRowIndexProps) => (
-  <div
-    className="grid-table__spacer"
-    style={{
-      width: contentWidth
-        ? `${contentWidth + rowIndexWidth}px`
-        : '100%',
-      height: contentHeight
-        ? `${contentHeight + HEADER_HEIGHT}px`
-        : '100%',
-    }}
-  >
-    <table className="grid-table__table --number">
-      <colgroup>
-        <col style={{ width: rowIndexWidth }} />
-      </colgroup>
-      <thead>
-        <tr role="row">
-          <th
-            role="columnheader"
-            className="grid-table__row-index-cell grid-table__row-index-header"
-            style={{ width: rowIndexWidth }}
-          />
-        </tr>
-      </thead>
-      <tbody>
-        {spacerHeight > 0 && (
-          <tr
-            aria-hidden="true"
-            className="grid-table__row-spacer"
-            role="presentation"
-          >
-            <td
-              colSpan={totalRenderedColumns}
-              role="presentation"
-              style={{ height: `${spacerHeight}px` }}
+}: GridTableRowIndexProps) => {
+  const fallbackRowHeight =
+    rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
+    MIN_ROW_HEIGHT
+
+  return (
+    <div
+      className="grid-table__spacer"
+      style={{
+        width: contentWidth
+          ? `${contentWidth + rowIndexWidth}px`
+          : '100%',
+        height: contentHeight
+          ? `${contentHeight + HEADER_HEIGHT}px`
+          : '100%',
+      }}
+    >
+      <table className="grid-table__table --number">
+        <colgroup>
+          <col style={{ width: rowIndexWidth }} />
+        </colgroup>
+        <thead>
+          <tr role="row">
+            <th
+              role="columnheader"
+              className="grid-table__row-index-cell grid-table__row-index-header"
             />
           </tr>
-        )}
-        {rows.map((_, rowIndex) => {
-          const absoluteRowIndex = renderRowStartIndex + rowIndex
-          return (
+        </thead>
+        <tbody>
+          {spacerHeight > 0 && (
             <tr
-              key={`row-${absoluteRowIndex}`}
-              role="row"
-              style={{
-                height: `${rowHeights[absoluteRowIndex] ?? defaultRowHeight}px`,
-              }}
+              aria-hidden="true"
+              className="grid-table__row-spacer"
+              role="presentation"
             >
-              <th
-                role="gridcell"
-                className="grid-table__row-index-cell"
-                style={{ width: rowIndexWidth }}
-              >
-                {absoluteRowIndex + 1}
-              </th>
+              <td
+                colSpan={totalRenderedColumns}
+                role="presentation"
+                style={{ height: `${spacerHeight}px` }}
+              />
             </tr>
-          )
-        })}
-      </tbody>
-    </table>
-  </div>
-)
+          )}
+          {rows.map((_, rowIndex) => {
+            const absoluteRowIndex = renderRowStartIndex + rowIndex
+            const currentRowHeight =
+              rowHeights[absoluteRowIndex] ?? fallbackRowHeight
+            return (
+              <tr
+                key={`row-${absoluteRowIndex}`}
+                role="row"
+                style={{
+                  height: `${currentRowHeight}px`,
+                }}
+              >
+                <th
+                  role="gridcell"
+                  className="grid-table__row-index-cell"
+                >
+                  {absoluteRowIndex + 1}
+                </th>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 export default GridTableRowIndex

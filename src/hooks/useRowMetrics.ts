@@ -98,7 +98,6 @@ export const useRowMetrics = ({
 
     if (data.length === 0) {
       return {
-        defaultHeight: dominantHeight,
         heights: [],
         offsets: [],
         totalHeight: 0,
@@ -126,7 +125,6 @@ export const useRowMetrics = ({
     }
 
     return {
-      defaultHeight: dominantHeight,
       heights: rowHeights,
       offsets: rowOffsets,
       totalHeight: runningOffset,
