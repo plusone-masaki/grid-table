@@ -338,7 +338,6 @@ const CellSelection = ({
           key={editorSessionKey}
           aria-label="Cell editor"
           className="grid-table__cell-editor"
-          wrap="off"
           defaultValue={editorValue}
           onBlur={onEditorBlur}
           onInput={(event) => handleEditorInput(event.currentTarget.value)}

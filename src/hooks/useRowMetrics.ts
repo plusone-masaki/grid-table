@@ -39,103 +39,108 @@ const computeHeightFromLineCount = (lineCount: number): number => {
 
 const MIN_CONTENT_WIDTH = 8
 const CELL_CONTENT_GUTTER = 8
-
 const FALLBACK_FONT =
-  '14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
+  '14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
 
-let measurementElement: HTMLSpanElement | null = null
-let measurementStyleSignature = ''
-let horizontalPadding = CELL_CONTENT_GUTTER
+interface MeasurementCache {
+  context: CanvasRenderingContext2D
+  letterSpacing: number
+  horizontalPadding: number
+  signature: string
+}
 
-const ensureMeasurementElement = (): HTMLSpanElement | null => {
+let measurementCache: MeasurementCache | null = null
+
+const resolveMeasurementCache = (): MeasurementCache | null => {
   if (typeof document === 'undefined') {
     return null
   }
 
-  if (!measurementElement) {
-    const element = document.createElement('span')
-    element.setAttribute('data-grid-table-measure', 'true')
-    element.style.position = 'absolute'
-    element.style.visibility = 'hidden'
-    element.style.pointerEvents = 'none'
-    element.style.userSelect = 'none'
-    element.style.whiteSpace = 'pre'
-    element.style.padding = '0'
-    element.style.margin = '0'
-    element.style.border = '0'
-    element.style.top = '-9999px'
-    element.style.left = '-9999px'
-    element.style.font = FALLBACK_FONT
-    element.style.letterSpacing = 'normal'
-    element.style.fontKerning = 'auto'
-    document.body.appendChild(element)
-    measurementElement = element
-    measurementStyleSignature = ''
-  }
-
-  if (!measurementElement) {
-    return null
-  }
-
-  if (typeof window !== 'undefined') {
-    const referenceCell = document.querySelector(
-      '.grid-table__table tbody td',
-    ) as HTMLElement | null
-
-    if (referenceCell) {
-      const computed = window.getComputedStyle(referenceCell)
-      const signature = [
-        computed.font,
-        computed.letterSpacing,
-        computed.fontKerning,
-        computed.paddingLeft,
-        computed.paddingRight,
-      ].join('|')
-
-      if (signature !== measurementStyleSignature) {
-        measurementElement.style.font =
-          computed.font && computed.font !== 'normal'
-            ? computed.font
-            : FALLBACK_FONT
-        measurementElement.style.letterSpacing =
-          computed.letterSpacing ?? 'normal'
-        measurementElement.style.fontKerning =
-          computed.fontKerning ?? 'auto'
-
-        const paddingLeft =
-          Number.parseFloat(computed.paddingLeft || '0') || 0
-        const paddingRight =
-          Number.parseFloat(computed.paddingRight || '0') || 0
-        const resolvedPadding = paddingLeft + paddingRight
-        horizontalPadding =
-          Number.isFinite(resolvedPadding) && resolvedPadding >= 0
-            ? resolvedPadding
-            : CELL_CONTENT_GUTTER
-
-        measurementStyleSignature = signature
-      }
+  if (!measurementCache) {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (!context) {
+      return null
+    }
+    measurementCache = {
+      context,
+      letterSpacing: 0,
+      horizontalPadding: CELL_CONTENT_GUTTER,
+      signature: '',
     }
   }
 
-  return measurementElement
+  if (typeof window === 'undefined') {
+    return measurementCache
+  }
+
+  const referenceCell = document.querySelector(
+    '.grid-table__table tbody td',
+  ) as HTMLElement | null
+
+  if (!referenceCell) {
+    return measurementCache
+  }
+
+  const computed = window.getComputedStyle(referenceCell)
+  const fontValue =
+    computed.font && computed.font !== 'normal'
+      ? computed.font
+      : [
+          computed.fontStyle,
+          computed.fontVariant,
+          computed.fontWeight,
+          computed.fontSize,
+          computed.fontFamily,
+        ]
+          .filter(Boolean)
+          .join(' ')
+
+  const resolvedFont = fontValue || FALLBACK_FONT
+  const letterSpacing =
+    computed.letterSpacing === 'normal'
+      ? 0
+      : Number.parseFloat(computed.letterSpacing || '0') || 0
+
+  const paddingLeft = Number.parseFloat(computed.paddingLeft || '0') || 0
+  const paddingRight = Number.parseFloat(computed.paddingRight || '0') || 0
+  const totalPadding = paddingLeft + paddingRight
+  const resolvedPadding =
+    Number.isFinite(totalPadding) && totalPadding >= 0
+      ? totalPadding
+      : CELL_CONTENT_GUTTER
+
+  const signature = [
+    resolvedFont,
+    letterSpacing,
+    resolvedPadding,
+  ].join('|')
+
+  if (measurementCache.signature !== signature) {
+    measurementCache.context.font = resolvedFont
+    measurementCache.letterSpacing = letterSpacing
+    measurementCache.horizontalPadding = resolvedPadding
+    measurementCache.signature = signature
+  }
+
+  return measurementCache
 }
 
-const measureSegmentWidth = (
-  segment: string,
-): number => {
+const measureSegmentWidth = (segment: string): number => {
   if (!segment) {
     return 0
   }
 
-  const probe = ensureMeasurementElement()
-  if (probe) {
-    probe.textContent = segment.replace(/\s/g, (char) =>
-      char === ' ' ? '\u00a0' : char,
-    )
-    const width = probe.getBoundingClientRect().width
-    probe.textContent = ''
-    if (Number.isFinite(width)) {
-      return width
+  const cache = resolveMeasurementCache()
+  if (cache) {
+    const metrics = cache.context.measureText(segment)
+    const spacingCompensation =
+      cache.letterSpacing !== 0 && segment.length > 1
+        ? cache.letterSpacing * (segment.length - 1)
+        : 0
+    const measuredWidth = metrics.width + spacingCompensation
+    if (Number.isFinite(measuredWidth)) {
+      return measuredWidth
     }
   }
 
@@ -146,12 +151,12 @@ const computeMultilineDisplayLines = (
   value: string,
   metric: ComputedColumnMetrics | undefined,
 ): number => {
-  ensureMeasurementElement()
-
+  const cache = resolveMeasurementCache()
+  const padding = cache ? cache.horizontalPadding : CELL_CONTENT_GUTTER
   const segments = value.split(/\r?\n/)
   const columnWidth = metric?.width ?? MIN_COLUMN_WIDTH
   const availableWidth = Math.max(
-    columnWidth - horizontalPadding,
+    columnWidth - padding,
     MIN_CONTENT_WIDTH,
   )
 
