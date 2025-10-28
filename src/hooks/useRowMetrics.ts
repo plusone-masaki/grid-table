@@ -6,7 +6,6 @@ import type {
   GridCellValue,
 } from 'types/grid'
 import {
-  BASE_ROW_HEIGHT,
   DEFAULT_SAMPLE_SIZE,
   MIN_ROW_HEIGHT,
 } from '../constants/grid-table'
