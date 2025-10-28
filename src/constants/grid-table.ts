@@ -18,13 +18,11 @@ export const HEADER_HEIGHT = 24
 export const DEFAULT_SAMPLE_SIZE = 50
 
 export const MIN_COLUMN_WIDTH = 80
-export const MAX_COLUMN_WIDTH = 320
 export const CHAR_PIXEL_WIDTH = 8
 export const CELL_HORIZONTAL_PADDING = 24
 
 export const BASE_ROW_HEIGHT = 24
 export const MIN_ROW_HEIGHT = 22
-export const MAX_ROW_HEIGHT = 80
 export const CHAR_PER_LINE = 30
 export const EXTRA_LINE_HEIGHT = 12
 

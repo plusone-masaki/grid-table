@@ -223,9 +223,11 @@ const CellSelection = ({
       return
     }
 
-    textarea.focus()
-    const length = textarea.value.length
-    textarea.setSelectionRange(length, length)
+    if (document.activeElement !== textarea) {
+      textarea.focus()
+      const length = textarea.value.length
+      textarea.setSelectionRange(length, length)
+    }
 
     if (typeof window !== 'undefined') {
       resizeFrameRef.current = window.requestAnimationFrame(() => {

@@ -5,12 +5,13 @@ import type {
   GridCellValue,
 } from '../types/grid'
 import {
-  CELL_HORIZONTAL_PADDING,
-  CHAR_PIXEL_WIDTH,
   DEFAULT_SAMPLE_SIZE,
-  MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
 } from '../constants/grid-table'
+import {
+  getCellContentInsets,
+  measureTextContentWidth,
+} from '../utils/text-measurement'
 
 export interface ColumnDefinitionInput {
   id: string
@@ -25,20 +26,23 @@ interface UseColumnMetricsParams {
   priorityRowIndices?: number[]
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
-
-const estimateTextWidth = (value: GridCellValue): number => {
+const measureValueContentWidth = (value: GridCellValue): number => {
   if (value === null || value === undefined) {
-    return MIN_COLUMN_WIDTH
+    return measureTextContentWidth('')
   }
 
   const text = String(value)
-  const longestLineLength = text
-    .split('\n')
-    .reduce((maxLength, line) => Math.max(maxLength, line.length), 0)
+  const lines = text.split(/\r?\n/)
 
-  return longestLineLength * CHAR_PIXEL_WIDTH + CELL_HORIZONTAL_PADDING
+  let maxWidth = 0
+  for (const line of lines) {
+    const width = measureTextContentWidth(line)
+    if (width > maxWidth) {
+      maxWidth = width
+    }
+  }
+
+  return maxWidth
 }
 
 export const useColumnMetrics = ({
@@ -69,16 +73,20 @@ export const useColumnMetrics = ({
     }
 
     const sampleRows = sampleIndices.map((index) => data[index]).filter(Boolean)
+    const { total: horizontalInset } = getCellContentInsets()
     let offset = 0
 
     return columns.map((column) => {
-      const headerWidth = estimateTextWidth(column.header)
+      const headerContentWidth = measureValueContentWidth(column.header)
       const bodyWidth = sampleRows.reduce((maxWidth, row) => {
-        const cellWidth = estimateTextWidth(row[column.id])
+        const cellWidth = measureValueContentWidth(row[column.id])
         return Math.max(maxWidth, cellWidth)
-      }, headerWidth)
+      }, headerContentWidth)
 
-      const width = clamp(bodyWidth, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH)
+      const width = Math.max(
+        Math.ceil(bodyWidth + horizontalInset),
+        MIN_COLUMN_WIDTH,
+      )
       const metric: ComputedColumnMetrics = {
         id: column.id,
         width,

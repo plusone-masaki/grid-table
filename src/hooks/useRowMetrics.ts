@@ -7,13 +7,10 @@ import type {
 } from 'types/grid'
 import {
   BASE_ROW_HEIGHT,
-  CHAR_PIXEL_WIDTH,
   DEFAULT_SAMPLE_SIZE,
-  EXTRA_LINE_HEIGHT,
-  MAX_ROW_HEIGHT,
-  MIN_COLUMN_WIDTH,
   MIN_ROW_HEIGHT,
 } from '../constants/grid-table'
+import { getCellContentInsets } from '../utils/text-measurement'
 
 interface ColumnDefinitionInput {
   id: string
@@ -28,189 +25,35 @@ interface UseRowMetricsParams {
   priorityRowIndices?: number[]
 }
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(Math.max(value, min), max)
-
-const computeHeightFromLineCount = (lineCount: number): number => {
-  const extraLines = Math.max(lineCount - 1, 0)
-  const computedHeight = BASE_ROW_HEIGHT + extraLines * EXTRA_LINE_HEIGHT
-  return clamp(computedHeight, MIN_ROW_HEIGHT, MAX_ROW_HEIGHT)
-}
-
-const MIN_CONTENT_WIDTH = 8
-const CELL_CONTENT_GUTTER = 8
-const FALLBACK_FONT =
-  '14px system-ui, -apple-system, BlinkMacSystemFont, sans-serif'
-
-interface MeasurementCache {
-  context: CanvasRenderingContext2D
-  letterSpacing: number
-  horizontalPadding: number
-  signature: string
-}
-
-let measurementCache: MeasurementCache | null = null
-
-const resolveMeasurementCache = (): MeasurementCache | null => {
-  if (typeof document === 'undefined') {
-    return null
-  }
-
-  if (!measurementCache) {
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (!context) {
-      return null
-    }
-    measurementCache = {
-      context,
-      letterSpacing: 0,
-      horizontalPadding: CELL_CONTENT_GUTTER,
-      signature: '',
-    }
-  }
-
-  if (typeof window === 'undefined') {
-    return measurementCache
-  }
-
-  const referenceCell = document.querySelector(
-    '.grid-table__table tbody td',
-  ) as HTMLElement | null
-
-  if (!referenceCell) {
-    return measurementCache
-  }
-
-  const computed = window.getComputedStyle(referenceCell)
-  const fontValue =
-    computed.font && computed.font !== 'normal'
-      ? computed.font
-      : [
-          computed.fontStyle,
-          computed.fontVariant,
-          computed.fontWeight,
-          computed.fontSize,
-          computed.fontFamily,
-        ]
-          .filter(Boolean)
-          .join(' ')
-
-  const resolvedFont = fontValue || FALLBACK_FONT
-  const letterSpacing =
-    computed.letterSpacing === 'normal'
-      ? 0
-      : Number.parseFloat(computed.letterSpacing || '0') || 0
-
-  const paddingLeft = Number.parseFloat(computed.paddingLeft || '0') || 0
-  const paddingRight = Number.parseFloat(computed.paddingRight || '0') || 0
-  const totalPadding = paddingLeft + paddingRight
-  const resolvedPadding =
-    Number.isFinite(totalPadding) && totalPadding >= 0
-      ? totalPadding
-      : CELL_CONTENT_GUTTER
-
-  const signature = [
-    resolvedFont,
-    letterSpacing,
-    resolvedPadding,
-  ].join('|')
-
-  if (measurementCache.signature !== signature) {
-    measurementCache.context.font = resolvedFont
-    measurementCache.letterSpacing = letterSpacing
-    measurementCache.horizontalPadding = resolvedPadding
-    measurementCache.signature = signature
-  }
-
-  return measurementCache
-}
-
-const measureSegmentWidth = (segment: string): number => {
-  if (!segment) {
-    return 0
-  }
-
-  const cache = resolveMeasurementCache()
-  if (cache) {
-    const metrics = cache.context.measureText(segment)
-    const spacingCompensation =
-      cache.letterSpacing !== 0 && segment.length > 1
-        ? cache.letterSpacing * (segment.length - 1)
-        : 0
-    const measuredWidth = metrics.width + spacingCompensation
-    if (Number.isFinite(measuredWidth)) {
-      return measuredWidth
-    }
-  }
-
-  return segment.length * CHAR_PIXEL_WIDTH
-}
-
-const computeMultilineDisplayLines = (
-  value: string,
-  metric: ComputedColumnMetrics | undefined,
-): number => {
-  const cache = resolveMeasurementCache()
-  const padding = cache ? cache.horizontalPadding : CELL_CONTENT_GUTTER
-  const segments = value.split(/\r?\n/)
-  const columnWidth = metric?.width ?? MIN_COLUMN_WIDTH
-  const availableWidth = Math.max(
-    columnWidth - padding,
-    MIN_CONTENT_WIDTH,
-  )
-
-  let totalLines = 0
-  for (const segment of segments) {
-    if (segment.length === 0) {
-      totalLines += 1
-      continue
-    }
-
-    const segmentWidth = measureSegmentWidth(segment)
-    const wrappedLines = Math.max(
-      1,
-      Math.ceil(segmentWidth / availableWidth),
-    )
-    totalLines += wrappedLines
-  }
-
-  return Math.max(totalLines, 1)
-}
-
-const computeCellLineCount = (
-  value: GridCellValue,
-  metric: ComputedColumnMetrics | undefined,
-): number => {
-  const text =
-    value === null || value === undefined ? '' : String(value)
-
-  if (text.length === 0) {
-    return 1
-  }
-
-  const hasExplicitBreak = /\r?\n/.test(text)
-  if (!hasExplicitBreak) {
-    return 1
-  }
-
-  return computeMultilineDisplayLines(text, metric)
-}
+const countExplicitLines = (value: string): number =>
+  Math.max(value.split(/\r?\n/).length, 1)
 
 export const useRowMetrics = ({
   columns,
-  columnMetrics,
+  columnMetrics: _columnMetrics,
   data,
   sampleSize = DEFAULT_SAMPLE_SIZE,
   priorityRowIndices,
 }: UseRowMetricsParams): ComputedRowMetrics =>
   useMemo(() => {
-    const headerMaxLines = columns.reduce((maxLines, column) => {
-      const columnLines = column.header
-        ? column.header.split(/\r?\n/).length
-        : 1
-      return Math.max(maxLines, columnLines)
-    }, 1)
+    const { baseLineHeight, lineIncrement } = getCellContentInsets()
+    const effectiveBaseLineHeight = Math.max(baseLineHeight, MIN_ROW_HEIGHT)
+    const effectiveLineIncrement = lineIncrement > 0 ? lineIncrement : effectiveBaseLineHeight
+
+    const computeHeightFromLineCount = (lineCount: number): number => {
+      const extraLines = Math.max(lineCount - 1, 0)
+      const height =
+        effectiveBaseLineHeight + extraLines * effectiveLineIncrement
+      return Math.max(height, MIN_ROW_HEIGHT)
+    }
+
+    const headerBaselineHeight = columns.reduce((maxHeight, column) => {
+      const text = column.header ?? ''
+      const lineCount = countExplicitLines(text)
+      const height = computeHeightFromLineCount(lineCount)
+      return Math.max(maxHeight, height)
+    }, effectiveBaseLineHeight)
+
     const sampleIndices: number[] = []
     const maxInitialSample = Math.min(sampleSize, data.length)
 
@@ -233,20 +76,26 @@ export const useRowMetrics = ({
 
     const sampleRows = sampleIndices.map((index) => data[index]).filter(Boolean)
 
-    const bodyMaxLines = sampleRows.reduce((outerMax, row) => {
-      const rowLines = columns.reduce((rowMax, column, columnIndex) => {
-        const cellLines = computeCellLineCount(
-          row[column.id],
-          columnMetrics[columnIndex],
-        )
-        return Math.max(rowMax, cellLines)
-      }, 1)
+    const computeCellHeight = (value: GridCellValue): number => {
+      const text = value === null || value === undefined ? '' : String(value)
+      const lineCount = countExplicitLines(text)
+      return computeHeightFromLineCount(lineCount)
+    }
 
-      return Math.max(outerMax, rowLines)
-    }, 1)
+    const sampleMaxHeight = sampleRows.reduce((outerMax, row) => {
+      const rowHeight = columns.reduce((rowMax, column) => {
+        const cellHeight = computeCellHeight(row[column.id])
+        return Math.max(rowMax, cellHeight)
+      }, headerBaselineHeight)
 
-    const dominantLines = Math.max(headerMaxLines, bodyMaxLines)
-    const dominantHeight = computeHeightFromLineCount(dominantLines)
+      return Math.max(outerMax, rowHeight)
+    }, headerBaselineHeight)
+
+    const dominantHeight = Math.max(
+      effectiveBaseLineHeight,
+      headerBaselineHeight,
+      sampleMaxHeight,
+    )
 
     if (data.length === 0) {
       return {
@@ -262,16 +111,12 @@ export const useRowMetrics = ({
         return dominantHeight
       }
 
-      const rowLines = columns.reduce((rowMax, column, columnIndex) => {
-        const cellLines = computeCellLineCount(
-          row[column.id],
-          columnMetrics[columnIndex],
-        )
-        return Math.max(rowMax, cellLines)
-      }, 1)
+      const rowHeight = columns.reduce((rowMax, column) => {
+        const cellHeight = computeCellHeight(row[column.id])
+        return Math.max(rowMax, cellHeight)
+      }, effectiveBaseLineHeight)
 
-      const effectiveLines = Math.max(headerMaxLines, rowLines)
-      return computeHeightFromLineCount(effectiveLines)
+      return Math.max(rowHeight, headerBaselineHeight, effectiveBaseLineHeight)
     })
 
     const rowOffsets: number[] = new Array(rowHeights.length)
@@ -287,6 +132,6 @@ export const useRowMetrics = ({
       offsets: rowOffsets,
       totalHeight: runningOffset,
     }
-  }, [columns, columnMetrics, data, sampleSize, priorityRowIndices])
+  }, [columns, data, sampleSize, priorityRowIndices])
 
 export default useRowMetrics

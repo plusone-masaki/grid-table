@@ -195,7 +195,7 @@
   line-height: 1.4;
   outline: none;
   overflow: hidden;
-  padding: 0 3px;
+  padding: 0 3px 0 2px;
   position: absolute;
   resize: none;
   white-space: pre-wrap;
