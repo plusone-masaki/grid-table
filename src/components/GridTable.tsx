@@ -42,6 +42,8 @@ const SELECTION_BORDER_OFFSET = 1
 
 type ResolvedColumn = ColumnMetricsInput
 
+type PointerState = { isSelecting: boolean; pointerId: number | null }
+
 const cloneCellCoordinate = (coordinate: CellCoordinate): CellCoordinate => ({
   rowIndex: coordinate.rowIndex,
   columnIndex: coordinate.columnIndex,
@@ -126,10 +128,13 @@ export const GridTable = ({
       bodyRows: rawData,
     }
   }, [headerType, rawData])
-  const [selectionRange, setSelectionRange] = useState<SelectionRange | null>(null)
+  const [
+    selectionRange,
+    setSelectionRange,
+  ] = useState<SelectionRange | null>(null)
   const [anchorCell, setAnchorCell] = useState<CellCoordinate | null>(null)
   const [activeCell, setActiveCell] = useState<CellCoordinate | null>(null)
-  const pointerStateRef = useRef<{ isSelecting: boolean; pointerId: number | null }>({
+  const pointerStateRef = useRef<PointerState>({
     isSelecting: false,
     pointerId: null,
   })
@@ -148,7 +153,10 @@ export const GridTable = ({
   const [internalRows, setInternalRows] = useState<GridDataset>(bodyRows)
   const [editingCell, setEditingCell] = useState<CellCoordinate | null>(null)
   const [editingValue, setEditingValue] = useState('')
-  const [recentSampleRowIndex, setRecentSampleRowIndex] = useState<number | null>(null)
+  const [
+    recentSampleRowIndex,
+    setRecentSampleRowIndex,
+  ] = useState<number | null>(null)
   const prioritySampleRows = useMemo(
     () => (recentSampleRowIndex === null ? undefined : [recentSampleRowIndex]),
     [recentSampleRowIndex],
@@ -180,7 +188,8 @@ export const GridTable = ({
   })
   const { heights: rowHeights, offsets: rowOffsets } = rowMetrics
   const fallbackRowHeight =
-    rowHeights.find((height) => Number.isFinite(height) && height > 0) ?? MIN_ROW_HEIGHT
+    rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
+    MIN_ROW_HEIGHT
 
   const {
     range,
@@ -195,12 +204,8 @@ export const GridTable = ({
     scrollRef,
   })
 
-  const rowIndexMaxLength = Math.max(
-    1,
-    internalRows.length > 0 ? String(internalRows.length).length : 1,
-  )
-  const rowIndexMeasuredWidth =
-    rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING
+  const rowIndexMaxLength = Math.max(1, internalRows.length > 0 ? String(internalRows.length).length : 1)
+  const rowIndexMeasuredWidth = rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING
   const rowIndexWidth = Math.max(MIN_ROW_INDEX_WIDTH, rowIndexMeasuredWidth)
 
   const visibleColumns = useMemo(
@@ -220,7 +225,7 @@ export const GridTable = ({
 
   const spacerWidth = range.offsetLeft
   const spacerHeight = range.offsetTop
-  const totalRenderedColumns = 1 + (spacerWidth > 0 ? 1 : 0) + visibleColumns.length
+  const totalRenderedColumns = 1 + visibleColumns.length + (spacerWidth > 0 ? 1 : 0)
 
   const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
@@ -359,7 +364,13 @@ export const GridTable = ({
         updateSelectionState(selectionTarget, selectionTarget)
       }
     },
-    [editingCell, editingValue, resolvedColumns, updateSelectionState, editorRef],
+    [
+      editingCell,
+      editingValue,
+      resolvedColumns,
+      updateSelectionState,
+      editorRef,
+    ],
   )
 
   const startEditing = useCallback(
@@ -371,7 +382,7 @@ export const GridTable = ({
       }
 
       const rawValue = row[column.id]
-      const value = rawValue === null || rawValue === undefined ? '' : String(rawValue)
+      const value = rawValue == null ? '' : String(rawValue)
 
       pointerStateRef.current = {
         isSelecting: false,
@@ -408,9 +419,7 @@ export const GridTable = ({
         return null
       }
 
-      const cellElement = element.closest(
-        '[data-cell-coordinate="true"]',
-      ) as HTMLElement | null
+      const cellElement = element.closest('[data-cell-coordinate="true"]') as HTMLElement | null
 
       if (!cellElement) {
         return null
@@ -463,10 +472,7 @@ export const GridTable = ({
         columnIndex,
       }
 
-      const anchor =
-        event.shiftKey && anchorRef.current
-          ? anchorRef.current
-          : cell
+      const anchor = event.shiftKey && anchorRef.current ? anchorRef.current : cell
 
       updateSelectionState(anchor, cell)
       pointerStateRef.current = {
@@ -584,7 +590,9 @@ export const GridTable = ({
     [finalizePointerSelection],
   )
 
-  const normalizedSelectionRange = useMemo<NormalizedSelectionRange | null>(() => {
+  const normalizedSelectionRange = useMemo<
+    NormalizedSelectionRange | null
+  >(() => {
     if (selectionRange === null) {
       return null
     }
@@ -622,17 +630,10 @@ export const GridTable = ({
 
     const topOffset = rowOffsets[topRow] ?? topRow * fallbackRowHeight
     const bottomOffsetBase = rowOffsets[bottomRow] ?? bottomRow * fallbackRowHeight
-    const bottomOffset =
-      bottomOffsetBase + (rowHeights[bottomRow] ?? fallbackRowHeight)
-    const top = Math.max(
-      HEADER_HEIGHT + topOffset + SELECTION_BORDER_OFFSET,
-      0,
-    )
+    const bottomOffset = bottomOffsetBase + (rowHeights[bottomRow] ?? fallbackRowHeight)
+    const top = Math.max(0, HEADER_HEIGHT + topOffset + SELECTION_BORDER_OFFSET)
     const height = Math.max(bottomOffset - topOffset, fallbackRowHeight)
-    const left = Math.max(
-      rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET,
-      0,
-    )
+    const left = Math.max(0, rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET)
     const width = rightMetric.offset + rightMetric.width - leftMetric.offset
 
     return {
@@ -660,15 +661,10 @@ export const GridTable = ({
       return null
     }
 
-    const rowTop =
-      rowOffsets[editingCell.rowIndex] ??
-      editingCell.rowIndex * fallbackRowHeight
+    const rowTop = rowOffsets[editingCell.rowIndex] ?? editingCell.rowIndex * fallbackRowHeight
     const rowHeight = rowHeights[editingCell.rowIndex] ?? fallbackRowHeight
-    const top = Math.max(
-      HEADER_HEIGHT + rowTop,
-      0,
-    )
-    const left = Math.max(rowIndexWidth + columnMetric.offset, 0)
+    const top = Math.max(0, HEADER_HEIGHT + rowTop)
+    const left = Math.max(0, rowIndexWidth + columnMetric.offset)
 
     return {
       top,
@@ -685,10 +681,12 @@ export const GridTable = ({
     rowIndexWidth,
   ])
 
-  const editorSessionKey = useMemo(
-    () => (editingCell ? `${editingCell.rowIndex}-${editingCell.columnIndex}` : 'inactive'),
-    [editingCell],
-  )
+  const editorSessionKey = useMemo(() => {
+    if (!editingCell) {
+      return 'inactive'
+    }
+    return `${editingCell.rowIndex}-${editingCell.columnIndex}`
+  }, [editingCell])
 
   const anchorBounds = useMemo<SelectionRectangle | null>(() => {
     if (!anchorCell) {

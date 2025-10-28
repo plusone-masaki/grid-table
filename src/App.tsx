@@ -81,7 +81,10 @@ const App = () => {
   const [rowCount, setRowCount] = useState(DEFAULT_ROW_COUNT)
   const [columnCount, setColumnCount] = useState(DEFAULT_COLUMN_COUNT)
   const [headerType, setHeaderType] = useState<HeaderType>('alpha')
-  const [datasetVariant, setDatasetVariant] = useState<DatasetVariant>('numbers')
+  const [
+    datasetVariant,
+    setDatasetVariant,
+  ] = useState<DatasetVariant>('numbers')
 
   const data = useMemo(
     () =>

@@ -12,6 +12,10 @@ export interface GridTableRowIndexProps {
   renderRowStartIndex: number
 }
 
+const ROW_INDEX_HEADER_CLASS =
+  'grid-table__row-index-cell grid-table__row-index-header'
+const ROW_INDEX_CELL_CLASS = 'grid-table__row-index-cell'
+
 const GridTableRowIndex = ({
   rows,
   rowHeights,
@@ -44,10 +48,7 @@ const GridTableRowIndex = ({
         </colgroup>
         <thead>
           <tr role="row">
-            <th
-              role="columnheader"
-              className="grid-table__row-index-cell grid-table__row-index-header"
-            />
+            <th role="columnheader" className={ROW_INDEX_HEADER_CLASS} />
           </tr>
         </thead>
         <tbody>
@@ -76,10 +77,7 @@ const GridTableRowIndex = ({
                   height: `${currentRowHeight}px`,
                 }}
               >
-                <th
-                  role="gridcell"
-                  className="grid-table__row-index-cell"
-                >
+                <th role="gridcell" className={ROW_INDEX_CELL_CLASS}>
                   {absoluteRowIndex + 1}
                 </th>
               </tr>

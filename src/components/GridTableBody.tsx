@@ -42,6 +42,12 @@ export interface GridTableBodyProps {
   onCellDoubleClick?: (rowIndex: number, columnIndex: number) => void
 }
 
+const ROW_INDEX_HEADER_CLASS =
+  'grid-table__row-index-cell grid-table__row-index-header'
+const ROW_INDEX_CELL_CLASS = 'grid-table__row-index-cell'
+const ROW_INDEX_CELL_ANCHOR_CLASS =
+  'grid-table__row-index-cell grid-table__row-index-cell--anchor'
+
 const GridTableBody: FC<GridTableBodyProps> = ({
   rows,
   columns,
@@ -96,10 +102,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
         </colgroup>
         <thead>
           <tr role="row">
-            <th
-              role="columnheader"
-              className="grid-table__row-index-cell grid-table__row-index-header"
-            />
+            <th role="columnheader" className={ROW_INDEX_HEADER_CLASS} />
             {spacerWidth > 0 && (
               <th
                 aria-hidden="true"
@@ -152,8 +155,8 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                       role="gridcell"
                       className={
                         anchorCell?.rowIndex === absoluteRowIndex
-                          ? 'grid-table__row-index-cell grid-table__row-index-cell--anchor'
-                          : 'grid-table__row-index-cell'
+                          ? ROW_INDEX_CELL_ANCHOR_CLASS
+                          : ROW_INDEX_CELL_CLASS
                       }
                     >
                       {absoluteRowIndex + 1}

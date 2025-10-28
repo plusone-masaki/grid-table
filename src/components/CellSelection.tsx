@@ -53,17 +53,15 @@ const CellSelection = ({
 
   const computeEditorSize = useCallback(() => {
     const textarea = editorRef.current
-    if (!textarea || !editingBounds) {
+    if (!textarea || !editingBounds || typeof window === 'undefined') {
       return
     }
 
-    if (typeof window === 'undefined') {
-      return
-    }
+    const parseCssNumber = (value: string | null | undefined) =>
+      Number.parseFloat(value ?? '0') || 0
 
     const baseWidth = editingBounds.width
     const baseHeight = editingBounds.height
-
     const previousHeight = editorSizeRef.current?.height ?? baseHeight
 
     textarea.style.maxWidth = ''
@@ -73,50 +71,36 @@ const CellSelection = ({
     const rect = textarea.getBoundingClientRect()
     const parentElement = textarea.parentElement as HTMLElement | null
     const parentRect = parentElement?.getBoundingClientRect()
-    const parentContentRight =
-      parentRect && parentElement
-        ? parentRect.left + parentElement.clientWidth
-        : null
-    const viewportMargin = 8
-    const viewportWidth =
-      Number.isFinite(window.innerWidth) && window.innerWidth > 0
-        ? window.innerWidth
-        : baseWidth
-    const viewportRightLimit = viewportWidth - viewportMargin
-    const rawRightBoundary =
-      parentContentRight === null
-        ? viewportRightLimit
-        : Math.min(viewportRightLimit, parentContentRight)
-    const sanitizedRightBoundary = Number.isFinite(rawRightBoundary)
-      ? rawRightBoundary
-      : rect.left + baseWidth
-    const rawAvailableWidth = sanitizedRightBoundary - rect.left
-    const safeAvailableWidth = Number.isFinite(rawAvailableWidth)
-      ? Math.max(0, rawAvailableWidth)
-      : 0
-    const availableWidth = Math.max(baseWidth, safeAvailableWidth)
-    textarea.style.maxWidth =
-      Number.isFinite(availableWidth) && availableWidth > 0
-        ? `${availableWidth}px`
-        : ''
+    const parentContentRight = parentRect && parentElement
+      ? parentRect.left + parentElement.clientWidth
+      : null
+
+    const viewportWidth = Number.isFinite(window.innerWidth) && window.innerWidth > 0
+      ? window.innerWidth
+      : baseWidth
+    const viewportRightLimit = viewportWidth - 8
+    const constrainedRight = parentContentRight === null
+      ? viewportRightLimit
+      : Math.min(viewportRightLimit, parentContentRight)
+    const effectiveRight = Number.isFinite(constrainedRight) ? constrainedRight : rect.left + baseWidth
+    const widthFromLeft = effectiveRight - rect.left
+    const availableWidthCandidate = Number.isFinite(widthFromLeft) ? Math.max(0, widthFromLeft) : 0
+    const availableWidth = Math.max(baseWidth, availableWidthCandidate)
+    textarea.style.maxWidth = availableWidth > 0 ? `${availableWidth}px` : ''
 
     const computedStyle = window.getComputedStyle(textarea)
-    const paddingLeft =
-      Number.parseFloat(computedStyle.paddingLeft || '0') || 0
-    const paddingRight =
-      Number.parseFloat(computedStyle.paddingRight || '0') || 0
-    const borderLeft =
-      Number.parseFloat(computedStyle.borderLeftWidth || '0') || 0
-    const borderRight =
-      Number.parseFloat(computedStyle.borderRightWidth || '0') || 0
+    const horizontalExtras =
+      parseCssNumber(computedStyle.paddingLeft) +
+      parseCssNumber(computedStyle.paddingRight) +
+      parseCssNumber(computedStyle.borderLeftWidth) +
+      parseCssNumber(computedStyle.borderRightWidth)
+    const contentAreaWidth = Math.max(0, baseWidth - horizontalExtras)
+
     const letterSpacingRaw = computedStyle.letterSpacing ?? 'normal'
     const letterSpacing =
       letterSpacingRaw === 'normal'
         ? 0
         : Number.parseFloat(letterSpacingRaw) || 0
-    const horizontalExtras =
-      paddingLeft + paddingRight + borderLeft + borderRight
-    const contentAreaWidth = Math.max(0, baseWidth - horizontalExtras)
 
     const canvasContext = (() => {
       if (measureContextRef.current) {
@@ -152,20 +136,21 @@ const CellSelection = ({
         const content = line.length > 0 ? line : ' '
         const metrics = canvasContext.measureText(content)
         const baseLineWidth = metrics.width
-        const totalLineWidth =
-          baseLineWidth +
-          (letterSpacing > 0 && content.length > 1
+        const additionalSpacing =
+          letterSpacing > 0 && content.length > 1
             ? letterSpacing * (content.length - 1)
-            : 0)
+            : 0
+        const totalLineWidth = baseLineWidth + additionalSpacing
         if (totalLineWidth > longestLineWidth) {
           longestLineWidth = totalLineWidth
         }
       }
     }
+
     const desiredTotalWidth = Math.ceil(longestLineWidth + horizontalExtras)
     const widthGrowthThreshold = 0.5
-    const shouldExpand =
-      longestLineWidth - contentAreaWidth > widthGrowthThreshold
+    const widthDelta = longestLineWidth - contentAreaWidth
+    const shouldExpand = widthDelta > widthGrowthThreshold
     const widthCandidate = shouldExpand
       ? Math.max(baseWidth, desiredTotalWidth)
       : baseWidth
@@ -173,7 +158,6 @@ const CellSelection = ({
     textarea.style.width = `${nextWidth}px`
 
     let nextHeight = baseHeight
-
     const shouldAllowVerticalGrowth =
       textarea.value.includes('\n') ||
       (shouldExpand && nextWidth >= availableWidth - 0.5)

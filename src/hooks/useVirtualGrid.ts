@@ -244,7 +244,7 @@ export const useVirtualGrid = ({
           columnMetrics[columnEnd].width <
           viewportRight
       ) {
-        columnEnd += 1
+        columnEnd++
       }
 
       const baseEnd = clamp(columnEnd + 1, columnStart + 1, columnMetrics.length)
