@@ -15,6 +15,7 @@ import useColumnMetrics, {
   type ColumnDefinitionInput as ColumnMetricsInput,
 } from '../hooks/useColumnMetrics'
 import useRowMetrics from '../hooks/useRowMetrics'
+import useHeaderSelection from '../hooks/useHeaderSelection'
 import useSelectionControls from '../hooks/useSelectionControls'
 import useVirtualGrid from '../hooks/useVirtualGrid'
 import {
@@ -23,8 +24,6 @@ import {
   type CellCoordinate,
   type GridRow,
   type GridTableProps,
-  type NormalizedSelectionRange,
-  type SelectionRange,
   type SelectionRectangle,
 } from 'types/grid'
 import {
@@ -46,13 +45,6 @@ import './GridTable.css'
 const SELECTION_BORDER_OFFSET = 1
 
 type ResolvedColumn = ColumnMetricsInput
-
-type PointerState = { isSelecting: boolean; pointerId: number | null }
-
-const cloneCellCoordinate = (coordinate: CellCoordinate): CellCoordinate => ({
-  rowIndex: coordinate.rowIndex,
-  columnIndex: coordinate.columnIndex,
-})
 
 const toColumnHeader = (index: number): string => {
   let result = ''
@@ -136,18 +128,25 @@ const GridTableComponent = (
       bodyRows: rawData,
     }
   }, [headerType, rawData])
-  const [
-    selectionRange,
-    setSelectionRange,
-  ] = useState<SelectionRange | null>(null)
-  const [anchorCell, setAnchorCell] = useState<CellCoordinate | null>(null)
-  const [activeCell, setActiveCell] = useState<CellCoordinate | null>(null)
-  const pointerStateRef = useRef<PointerState>({
-    isSelecting: false,
-    pointerId: null,
+  const headerSelectionApiRef = useRef<{
+    reset: () => void
+    sync: (anchor: CellCoordinate) => void
+  }>({
+    reset: () => {},
+    sync: () => {},
   })
-  const anchorRef = useRef<CellCoordinate | null>(null)
-  const lastFocusRef = useRef<CellCoordinate | null>(null)
+  const selectionUpdateRef = useRef<
+    (anchor: CellCoordinate, focus: CellCoordinate) => void
+  >(() => {})
+  const handleHeaderAnchorSync = useCallback(
+    (anchor: CellCoordinate) => {
+      headerSelectionApiRef.current.sync(anchor)
+    },
+    [],
+  )
+  const handleHeaderReset = useCallback(() => {
+    headerSelectionApiRef.current.reset()
+  }, [])
 
   const resolvedColumns: ResolvedColumn[] = useMemo(() => {
     const columnKeys = resolveColumnKeys(headerRow, bodyRows)
@@ -239,195 +238,6 @@ const GridTableComponent = (
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
 
-  const normalizedSelectionRange = useMemo<
-    NormalizedSelectionRange | null
-  >(() => {
-    if (selectionRange === null) {
-      return null
-    }
-
-    const { anchor, focus } = selectionRange
-
-    return {
-      topRow: Math.min(anchor.rowIndex, focus.rowIndex),
-      bottomRow: Math.max(anchor.rowIndex, focus.rowIndex),
-      leftColumn: Math.min(anchor.columnIndex, focus.columnIndex),
-      rightColumn: Math.max(anchor.columnIndex, focus.columnIndex),
-    }
-  }, [selectionRange])
-
-  const fullySelectedColumns = useMemo(() => {
-    if (
-      !normalizedSelectionRange ||
-      rowCount === 0 ||
-      columnCount === 0 ||
-      normalizedSelectionRange.topRow !== 0 ||
-      normalizedSelectionRange.bottomRow !== rowCount - 1
-    ) {
-      return new Set<number>()
-    }
-
-    const selected = new Set<number>()
-    for (
-      let columnIndex = normalizedSelectionRange.leftColumn;
-      columnIndex <= normalizedSelectionRange.rightColumn;
-      columnIndex += 1
-    ) {
-      selected.add(columnIndex)
-    }
-    return selected
-  }, [normalizedSelectionRange, rowCount, columnCount])
-
-  const fullySelectedRows = useMemo(() => {
-    if (
-      !normalizedSelectionRange ||
-      rowCount === 0 ||
-      columnCount === 0 ||
-      normalizedSelectionRange.leftColumn !== 0 ||
-      normalizedSelectionRange.rightColumn !== columnCount - 1
-    ) {
-      return new Set<number>()
-    }
-
-    const selected = new Set<number>()
-    for (
-      let rowIndex = normalizedSelectionRange.topRow;
-      rowIndex <= normalizedSelectionRange.bottomRow;
-      rowIndex += 1
-    ) {
-      selected.add(rowIndex)
-    }
-    return selected
-  }, [normalizedSelectionRange, rowCount, columnCount])
-
-  const isAllSelected = useMemo(
-    () =>
-      rowCount > 0 &&
-      columnCount > 0 &&
-      fullySelectedColumns.size === columnCount &&
-      fullySelectedRows.size === rowCount,
-    [rowCount, columnCount, fullySelectedColumns, fullySelectedRows],
-  )
-
-  const highlightedColumns = useMemo(() => {
-    const set = new Set<number>()
-    if (normalizedSelectionRange) {
-      for (
-        let columnIndex = normalizedSelectionRange.leftColumn;
-        columnIndex <= normalizedSelectionRange.rightColumn;
-        columnIndex += 1
-      ) {
-        set.add(columnIndex)
-      }
-    }
-    if (activeCell) {
-      set.add(activeCell.columnIndex)
-    }
-    return set
-  }, [normalizedSelectionRange, activeCell])
-
-  const highlightedRows = useMemo(() => {
-    const set = new Set<number>()
-    if (normalizedSelectionRange) {
-      for (
-        let rowIndex = normalizedSelectionRange.topRow;
-        rowIndex <= normalizedSelectionRange.bottomRow;
-        rowIndex += 1
-      ) {
-        set.add(rowIndex)
-      }
-    }
-    if (activeCell) {
-      set.add(activeCell.rowIndex)
-    }
-    return set
-  }, [normalizedSelectionRange, activeCell])
-
-  const resetSelectionState = useCallback(() => {
-    setSelectionRange(null)
-    setAnchorCell(null)
-    setActiveCell(null)
-    pointerStateRef.current = {
-      isSelecting: false,
-      pointerId: null,
-    }
-    anchorRef.current = null
-    lastFocusRef.current = null
-    lastColumnHeaderRef.current = null
-    lastRowHeaderRef.current = null
-  }, [])
-
-  useEffect(() => {
-    if (selectionRange === null) {
-      return
-    }
-
-    const { anchor, focus } = selectionRange
-    const isRowInRange =
-      anchor.rowIndex >= 0 &&
-      anchor.rowIndex < rowCount &&
-      focus.rowIndex >= 0 &&
-      focus.rowIndex < rowCount
-    const isColumnInRange =
-      anchor.columnIndex >= 0 &&
-      anchor.columnIndex < columnCount &&
-      focus.columnIndex >= 0 &&
-      focus.columnIndex < columnCount
-
-    if (!isRowInRange || !isColumnInRange) {
-      resetSelectionState()
-    }
-  }, [selectionRange, rowCount, columnCount, resetSelectionState])
-
-  const updateSelectionState = useCallback(
-    (anchor: CellCoordinate, focus: CellCoordinate) => {
-      const anchorClone = cloneCellCoordinate(anchor)
-      const focusClone = cloneCellCoordinate(focus)
-
-      setSelectionRange((prev) => {
-        if (
-          prev &&
-          prev.anchor.rowIndex === anchorClone.rowIndex &&
-          prev.anchor.columnIndex === anchorClone.columnIndex &&
-          prev.focus.rowIndex === focusClone.rowIndex &&
-          prev.focus.columnIndex === focusClone.columnIndex
-        ) {
-          return prev
-        }
-        return {
-          anchor: anchorClone,
-          focus: focusClone,
-        }
-      })
-      setAnchorCell((prev) => {
-        if (
-          prev &&
-          prev.rowIndex === anchorClone.rowIndex &&
-          prev.columnIndex === anchorClone.columnIndex
-        ) {
-          return prev
-        }
-        return anchorClone
-      })
-      setActiveCell((prev) => {
-        if (
-          prev &&
-          prev.rowIndex === focusClone.rowIndex &&
-          prev.columnIndex === focusClone.columnIndex
-        ) {
-          return prev
-        }
-        return focusClone
-      })
-
-      anchorRef.current = anchorClone
-      lastFocusRef.current = focusClone
-      lastColumnHeaderRef.current = anchorClone.columnIndex
-      lastRowHeaderRef.current = anchorClone.rowIndex
-    },
-    [],
-  )
-
   const commitEditing = useCallback(
     (
       options?: {
@@ -477,14 +287,14 @@ const GridTableComponent = (
       editingValueRef.current = ''
 
       if (!options?.skipSelectionUpdate && selectionTarget) {
-        updateSelectionState(selectionTarget, selectionTarget)
+        selectionUpdateRef.current(selectionTarget, selectionTarget)
       }
     },
     [
       editingCell,
       editingValue,
       resolvedColumns,
-      updateSelectionState,
+      selectionUpdateRef,
       editorRef,
     ],
   )
@@ -494,8 +304,8 @@ const GridTableComponent = (
     columnCount,
     editingCell,
     commitEditing,
-    updateSelectionState,
-    resetSelectionState,
+    onAnchorChange: handleHeaderAnchorSync,
+    onResetSelection: handleHeaderReset,
   })
   const {
     selectRow,
@@ -503,314 +313,47 @@ const GridTableComponent = (
     selectAll,
     selectRowRange,
     selectColumnRange,
+    selectionRange,
+    normalizedSelectionRange,
+    anchorCell,
+    activeCell,
+    highlightedColumns,
+    highlightedRows,
+    fullySelectedColumns,
+    fullySelectedRows,
+    isAllSelected,
+    updateSelection,
+    handleCellPointerDown,
+    handleCellPointerMove,
+    handleCellPointerUp,
+    handleCellPointerCancel,
   } = selectionControls
+  selectionUpdateRef.current = updateSelection
 
-  const lastColumnHeaderRef = useRef<number | null>(null)
-  const lastRowHeaderRef = useRef<number | null>(null)
-  const headerPointerStateRef = useRef<{
-    type: 'row' | 'column' | null
-    pointerId: number | null
-    anchorIndex: number | null
-    hasDragged: boolean
-  }>({ type: null, pointerId: null, anchorIndex: null, hasDragged: false })
-  const suppressColumnClickRef = useRef(false)
-  const suppressRowClickRef = useRef(false)
+  const {
+    handleColumnHeaderPointerDown,
+    handleColumnHeaderPointerMove,
+    handleColumnHeaderPointerEnd,
+    handleRowHeaderPointerDown,
+    handleRowHeaderPointerMove,
+    handleRowHeaderPointerEnd,
+    handleColumnHeaderClick,
+    handleRowHeaderClick,
+    syncSelectionAnchors,
+    resetHeaderSelection,
+  } = useHeaderSelection({
+    rowCount,
+    columnCount,
+    selectionRange,
+    selectColumn,
+    selectRow,
+    selectColumnRange,
+    selectRowRange,
+    selectAll,
+  })
 
-  const resolveHeaderTargetIndex = (
-    event: ReactPointerEvent<HTMLTableCellElement>,
-    type: 'row' | 'column',
-  ): number | null => {
-    const { clientX, clientY } = event.nativeEvent
-    const element = document.elementFromPoint(clientX, clientY) as HTMLElement | null
-    if (!element) {
-      return null
-    }
-
-    const selector = type === 'column' ? '[data-column-index]' : '[data-row-index]'
-    const target = element.closest(selector) as HTMLElement | null
-    if (!target) {
-      return null
-    }
-
-    const attribute =
-      type === 'column'
-        ? target.getAttribute('data-column-index')
-        : target.getAttribute('data-row-index')
-
-    if (attribute === null) {
-      return null
-    }
-
-    const value = Number(attribute)
-    return Number.isNaN(value) ? null : value
-  }
-
-  const clearHeaderPointerState = () => {
-    headerPointerStateRef.current = {
-      type: null,
-      pointerId: null,
-      anchorIndex: null,
-      hasDragged: false,
-    }
-  }
-
-  const handleColumnHeaderPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>, columnIndex: number) => {
-      if (!event.isPrimary || event.button !== 0) {
-        return
-      }
-
-      event.preventDefault()
-
-      suppressColumnClickRef.current = false
-
-      if (columnIndex < 0) {
-        selectAll()
-        lastColumnHeaderRef.current = 0
-        clearHeaderPointerState()
-        return
-      }
-
-      const previousColumnAnchor = lastColumnHeaderRef.current
-      const anchorIndex = event.shiftKey
-        ? previousColumnAnchor ?? selectionRange?.anchor.columnIndex ?? columnIndex
-        : columnIndex
-
-      if (event.shiftKey && previousColumnAnchor === null && !selectionRange) {
-        lastColumnHeaderRef.current = anchorIndex
-        selectColumn(anchorIndex)
-        clearHeaderPointerState()
-        return
-      }
-
-      lastColumnHeaderRef.current = anchorIndex
-
-      selectColumnRange(anchorIndex, columnIndex)
-
-      headerPointerStateRef.current = {
-        type: 'column',
-        pointerId: event.pointerId,
-        anchorIndex,
-        hasDragged: false,
-      }
-
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // ignore capture failures
-      }
-    },
-    [selectAll, selectColumn, selectColumnRange, selectionRange],
-  )
-
-  const handleColumnHeaderPointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      const state = headerPointerStateRef.current
-      if (state.type !== 'column' || state.pointerId === null) {
-        return
-      }
-
-      if (state.pointerId !== event.pointerId) {
-        return
-      }
-
-      const targetIndex = resolveHeaderTargetIndex(event, 'column')
-      if (targetIndex === null || targetIndex < 0) {
-        return
-      }
-
-      if (state.anchorIndex === null) {
-        return
-      }
-
-      if (targetIndex !== state.anchorIndex) {
-        state.hasDragged = true
-      }
-
-      selectColumnRange(state.anchorIndex, targetIndex)
-    },
-    [selectColumnRange],
-  )
-
-  const handleColumnHeaderPointerEnd = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      const state = headerPointerStateRef.current
-      if (state.pointerId !== null && state.pointerId !== event.pointerId) {
-        return
-      }
-
-      const hasDragged = state.hasDragged || event.shiftKey
-      if (hasDragged) {
-        state.hasDragged = true
-      }
-
-      if (state.type === 'column' && hasDragged) {
-        suppressColumnClickRef.current = true
-      } else if (state.type === 'row' && hasDragged) {
-        suppressRowClickRef.current = true
-      }
-
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      } catch {
-        // ignore release failures
-      }
-
-      clearHeaderPointerState()
-    },
-    [],
-  )
-
-  const handleColumnHeaderClick = useCallback(
-    (absoluteColumnIndex: number) => {
-      if (suppressColumnClickRef.current) {
-        suppressColumnClickRef.current = false
-        return
-      }
-
-      if (absoluteColumnIndex < 0) {
-        selectAll()
-        return
-      }
-
-      if (columnCount === 0) {
-        return
-      }
-
-      const clampedIndex = Math.max(0, Math.min(absoluteColumnIndex, columnCount - 1))
-      selectColumn(clampedIndex)
-    },
-    [selectAll, selectColumn, columnCount],
-  )
-
-  const handleRowHeaderClick = useCallback(
-    (rowIndex: number | null) => {
-      if (suppressRowClickRef.current) {
-        suppressRowClickRef.current = false
-        return
-      }
-
-      if (rowIndex === null || rowIndex < 0) {
-        selectAll()
-        return
-      }
-
-      if (rowCount === 0) {
-        return
-      }
-
-      const clampedIndex = Math.max(0, Math.min(rowIndex, rowCount - 1))
-      selectRow(clampedIndex)
-    },
-    [selectAll, selectRow, rowCount],
-  )
-
-  const handleRowHeaderPointerDown = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>, rowIndex: number) => {
-      if (!event.isPrimary || event.button !== 0) {
-        return
-      }
-
-      event.preventDefault()
-
-      suppressRowClickRef.current = false
-
-      if (rowIndex < 0) {
-        selectAll()
-        lastRowHeaderRef.current = 0
-        clearHeaderPointerState()
-        return
-      }
-
-      const previousRowAnchor = lastRowHeaderRef.current
-      const anchorIndex = event.shiftKey
-        ? previousRowAnchor ?? selectionRange?.anchor.rowIndex ?? rowIndex
-        : rowIndex
-
-      if (event.shiftKey && previousRowAnchor === null && !selectionRange) {
-        lastRowHeaderRef.current = anchorIndex
-        selectRow(anchorIndex)
-        clearHeaderPointerState()
-        return
-      }
-
-      lastRowHeaderRef.current = anchorIndex
-
-      selectRowRange(anchorIndex, rowIndex)
-
-      headerPointerStateRef.current = {
-        type: 'row',
-        pointerId: event.pointerId,
-        anchorIndex,
-        hasDragged: false,
-      }
-
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // ignore capture failures
-      }
-    },
-    [selectAll, selectRow, selectRowRange, selectionRange],
-  )
-
-  const handleRowHeaderPointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      const state = headerPointerStateRef.current
-      if (state.type !== 'row' || state.pointerId === null) {
-        return
-      }
-
-      if (state.pointerId !== event.pointerId) {
-        return
-      }
-
-      const targetIndex = resolveHeaderTargetIndex(event, 'row')
-      if (targetIndex === null || targetIndex < 0) {
-        return
-      }
-
-      if (state.anchorIndex === null) {
-        return
-      }
-
-      if (targetIndex !== state.anchorIndex) {
-        state.hasDragged = true
-      }
-
-      selectRowRange(state.anchorIndex, targetIndex)
-    },
-    [selectRowRange],
-  )
-
-  const handleRowHeaderPointerEnd = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      const state = headerPointerStateRef.current
-      if (state.pointerId !== null && state.pointerId !== event.pointerId) {
-        return
-      }
-
-      const hasDragged = state.hasDragged || event.shiftKey
-      if (hasDragged) {
-        state.hasDragged = true
-      }
-
-      if (state.type === 'column' && hasDragged) {
-        suppressColumnClickRef.current = true
-      } else if (state.type === 'row' && hasDragged) {
-        suppressRowClickRef.current = true
-      }
-
-      try {
-        event.currentTarget.releasePointerCapture(event.pointerId)
-      } catch {
-        // ignore release failures
-      }
-
-      clearHeaderPointerState()
-    },
-    [],
-  )
+  headerSelectionApiRef.current.reset = resetHeaderSelection
+  headerSelectionApiRef.current.sync = syncSelectionAnchors
 
   const startEditing = useCallback(
     (cell: CellCoordinate) => {
@@ -823,17 +366,12 @@ const GridTableComponent = (
       const rawValue = row[column.id]
       const value = rawValue == null ? '' : String(rawValue)
 
-      pointerStateRef.current = {
-        isSelecting: false,
-        pointerId: null,
-      }
-
-      updateSelectionState(cell, cell)
+      updateSelection(cell, cell)
       setEditingCell(cell)
       setEditingValue(value)
       editingValueRef.current = value
     },
-    [resolvedColumns, internalRows, updateSelectionState],
+    [resolvedColumns, internalRows, updateSelection],
   )
 
   const handleCellDoubleClick = useCallback(
@@ -846,188 +384,6 @@ const GridTableComponent = (
   const handleEditorBlur = useCallback(() => {
     commitEditing()
   }, [commitEditing])
-
-  const resolveCellFromEvent = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>): CellCoordinate | null => {
-      const element = document.elementFromPoint(
-        event.clientX,
-        event.clientY,
-      ) as HTMLElement | null
-
-      if (!element) {
-        return null
-      }
-
-      const cellElement = element.closest('[data-cell-coordinate="true"]') as HTMLElement | null
-
-      if (!cellElement) {
-        return null
-      }
-
-      const rowAttr = cellElement.getAttribute('data-row-index')
-      const columnAttr = cellElement.getAttribute('data-column-index')
-
-      if (rowAttr === null || columnAttr === null) {
-        return null
-      }
-
-      const rowIndex = Number(rowAttr)
-      const columnIndex = Number(columnAttr)
-
-      if (Number.isNaN(rowIndex) || Number.isNaN(columnIndex)) {
-        return null
-      }
-
-      return { rowIndex, columnIndex }
-    },
-    [],
-  )
-
-  const handleCellPointerDown = useCallback(
-    (
-      event: ReactPointerEvent<HTMLTableCellElement>,
-      rowIndex: number,
-      columnIndex: number,
-    ) => {
-      if (!event.isPrimary) {
-        return
-      }
-
-      if (event.pointerType === 'mouse' && event.button !== 0) {
-        return
-      }
-
-      if (editingCell) {
-        const isSameCell =
-          editingCell?.rowIndex === rowIndex &&
-          editingCell?.columnIndex === columnIndex
-        if (!isSameCell) {
-          commitEditing({ skipSelectionUpdate: true })
-        }
-      }
-
-      const cell: CellCoordinate = {
-        rowIndex,
-        columnIndex,
-      }
-
-      const anchor = event.shiftKey && anchorRef.current ? anchorRef.current : cell
-
-      updateSelectionState(anchor, cell)
-      pointerStateRef.current = {
-        isSelecting: true,
-        pointerId: event.pointerId,
-      }
-      lastFocusRef.current = cloneCellCoordinate(cell)
-
-      try {
-        event.currentTarget.setPointerCapture(event.pointerId)
-      } catch {
-        // 一部環境で setPointerCapture が失敗する可能性があるため握りつぶす
-      }
-    },
-    [updateSelectionState, editingCell, commitEditing],
-  )
-
-  const handleCellPointerMove = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!pointerStateRef.current.isSelecting) {
-        return
-      }
-
-      const anchor = anchorRef.current
-      if (!anchor) {
-        return
-      }
-
-      const nextFocus =
-        resolveCellFromEvent(event) ?? lastFocusRef.current
-
-      if (!nextFocus) {
-        return
-      }
-
-      if (
-        lastFocusRef.current &&
-        lastFocusRef.current.rowIndex === nextFocus.rowIndex &&
-        lastFocusRef.current.columnIndex === nextFocus.columnIndex
-      ) {
-        return
-      }
-
-      if (
-        nextFocus.rowIndex < 0 ||
-        nextFocus.rowIndex >= rowCount ||
-        nextFocus.columnIndex < 0 ||
-        nextFocus.columnIndex >= columnCount
-      ) {
-        return
-      }
-
-      lastFocusRef.current = cloneCellCoordinate(nextFocus)
-      updateSelectionState(anchor, nextFocus)
-    },
-    [resolveCellFromEvent, rowCount, columnCount, updateSelectionState],
-  )
-
-  const releasePointerCapture = (
-    target: EventTarget & HTMLTableCellElement,
-    pointerId: number,
-  ) => {
-    try {
-      if (target.hasPointerCapture(pointerId)) {
-        target.releasePointerCapture(pointerId)
-      }
-    } catch {
-      // releasePointerCapture が失敗しても処理継続
-    }
-  }
-
-  const stopPointerSelection = () => {
-    pointerStateRef.current = {
-      isSelecting: false,
-      pointerId: null,
-    }
-  }
-
-  const finalizePointerSelection = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (
-        pointerStateRef.current.pointerId !== null &&
-        event.pointerId === pointerStateRef.current.pointerId
-      ) {
-        releasePointerCapture(event.currentTarget, event.pointerId)
-      }
-
-      const anchor = anchorRef.current
-      const focus = lastFocusRef.current ?? anchor
-
-      if (anchor && focus) {
-        updateSelectionState(anchor, focus)
-      }
-
-      stopPointerSelection()
-    },
-    [updateSelectionState],
-  )
-
-  const handleCellPointerUp = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      if (!pointerStateRef.current.isSelecting) {
-        return
-      }
-
-      finalizePointerSelection(event)
-    },
-    [finalizePointerSelection],
-  )
-
-  const handleCellPointerCancel = useCallback(
-    (event: ReactPointerEvent<HTMLTableCellElement>) => {
-      finalizePointerSelection(event)
-    },
-    [finalizePointerSelection],
-  )
 
   const hasRangeSelection = normalizedSelectionRange !== null &&
     (
