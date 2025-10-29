@@ -24,25 +24,22 @@ import {
   type CellCoordinate,
   type GridRow,
   type GridTableProps,
-  type SelectionRectangle,
 } from 'types/grid'
 import {
   DEFAULT_OVERSCAN,
   EMPTY_DATASET_FALLBACK,
-  HEADER_HEIGHT,
   MIN_ROW_HEIGHT,
   MIN_ROW_INDEX_WIDTH,
   ROW_INDEX_CHAR_WIDTH,
   ROW_INDEX_PADDING,
 } from '../constants/grid-table'
 import type GridTableHandle from '../types/grid-table'
+import useSelectionBounds from '../hooks/useSelectionBounds'
 import GridTableBody from './GridTableBody'
 import GridTableHeader from './GridTableHeader'
 import GridTableRowIndex from './GridTableRowIndex'
 import CellSelection from './CellSelection'
 import './GridTable.css'
-
-const SELECTION_BORDER_OFFSET = 1
 
 type ResolvedColumn = ColumnMetricsInput
 
@@ -211,7 +208,8 @@ const GridTableComponent = (
     scrollRef,
   })
 
-  const rowIndexMaxLength = Math.max(1, internalRows.length > 0 ? String(internalRows.length).length : 1)
+  const rowCount = internalRows.length
+  const rowIndexMaxLength = String(Math.max(1, rowCount)).length
   const rowIndexMeasuredWidth = rowIndexMaxLength * ROW_INDEX_CHAR_WIDTH + ROW_INDEX_PADDING
   const rowIndexWidth = Math.max(MIN_ROW_INDEX_WIDTH, rowIndexMeasuredWidth)
 
@@ -234,7 +232,6 @@ const GridTableComponent = (
   const spacerHeight = range.offsetTop
   const totalRenderedColumns = 1 + visibleColumns.length + (spacerWidth > 0 ? 1 : 0)
 
-  const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
 
@@ -391,118 +388,24 @@ const GridTableComponent = (
       normalizedSelectionRange.leftColumn !== normalizedSelectionRange.rightColumn
     )
 
-  const selectionBounds = useMemo<SelectionRectangle | null>(() => {
-    if (normalizedSelectionRange === null) {
-      return null
-    }
-
-    const { topRow, bottomRow, leftColumn, rightColumn } =
-      normalizedSelectionRange
-
-    const leftMetric = columnMetrics[leftColumn]
-    const rightMetric = columnMetrics[rightColumn]
-
-    if (!leftMetric || !rightMetric) {
-      return null
-    }
-
-    const topOffset = rowOffsets[topRow] ?? topRow * fallbackRowHeight
-    const bottomOffsetBase = rowOffsets[bottomRow] ?? bottomRow * fallbackRowHeight
-    const bottomOffset = bottomOffsetBase + (rowHeights[bottomRow] ?? fallbackRowHeight)
-    const top = Math.max(0, HEADER_HEIGHT + topOffset + SELECTION_BORDER_OFFSET)
-    const height = Math.max(bottomOffset - topOffset, fallbackRowHeight)
-    const left = Math.max(0, rowIndexWidth + leftMetric.offset + SELECTION_BORDER_OFFSET)
-    const width = rightMetric.offset + rightMetric.width - leftMetric.offset
-
-    return {
-      top,
-      left,
-      width,
-      height,
-    }
-  }, [
+  const {
+    selectionBounds,
+    editingBounds,
+    anchorBounds,
+  } = useSelectionBounds({
+    columnMetrics,
+    rowOffsets,
+    rowHeights,
+    fallbackRowHeight,
+    rowIndexWidth,
     normalizedSelectionRange,
-    columnMetrics,
-    rowHeights,
-    rowOffsets,
-    fallbackRowHeight,
-    rowIndexWidth,
-  ])
-
-  const editingBounds = useMemo<SelectionRectangle | null>(() => {
-    if (!editingCell) {
-      return null
-    }
-
-    const columnMetric = columnMetrics[editingCell.columnIndex]
-    if (!columnMetric) {
-      return null
-    }
-
-    const rowTop = rowOffsets[editingCell.rowIndex] ?? editingCell.rowIndex * fallbackRowHeight
-    const rowHeight = rowHeights[editingCell.rowIndex] ?? fallbackRowHeight
-    const top = Math.max(0, HEADER_HEIGHT + rowTop)
-    const left = Math.max(0, rowIndexWidth + columnMetric.offset)
-
-    return {
-      top,
-      left,
-      width: columnMetric.width,
-      height: rowHeight,
-    }
-  }, [
     editingCell,
-    columnMetrics,
-    rowHeights,
-    rowOffsets,
-    fallbackRowHeight,
-    rowIndexWidth,
-  ])
-
-  const editorSessionKey = useMemo(() => {
-    if (!editingCell) {
-      return 'inactive'
-    }
-    return `${editingCell.rowIndex}-${editingCell.columnIndex}`
-  }, [editingCell])
-
-  const anchorBounds = useMemo<SelectionRectangle | null>(() => {
-    if (!anchorCell) {
-      return null
-    }
-
-    const columnMetric = columnMetrics[anchorCell.columnIndex]
-    if (!columnMetric) {
-      return null
-    }
-
-    const rowTop =
-      rowOffsets[anchorCell.rowIndex] ??
-      anchorCell.rowIndex * fallbackRowHeight
-    const rowHeight = rowHeights[anchorCell.rowIndex] ?? fallbackRowHeight
-    const top = Math.max(
-      HEADER_HEIGHT + rowTop + SELECTION_BORDER_OFFSET,
-      0,
-    )
-    const left = Math.max(
-      rowIndexWidth + columnMetric.offset + SELECTION_BORDER_OFFSET,
-      0,
-    )
-
-    return {
-      top,
-      left,
-      width: columnMetric.width,
-      height: rowHeight,
-    }
-  }, [
     anchorCell,
-    columnMetrics,
-    rowHeights,
-    rowOffsets,
-    fallbackRowHeight,
-    rowIndexWidth,
-  ])
+  })
+
+  const editorSessionKey = editingCell
+    ? `${editingCell.rowIndex}-${editingCell.columnIndex}`
+    : 'inactive'
 
   const handleGridScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {

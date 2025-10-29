@@ -207,6 +207,11 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                 const absoluteRowIndex = renderRowStartIndex + rowIndex
                 const currentRowHeight =
                   rowHeights[absoluteRowIndex] ?? fallbackRowHeight
+                const rowIndexClassName = anchorCell?.rowIndex === absoluteRowIndex
+                  ? ROW_INDEX_CELL_ANCHOR_CLASS
+                  : highlightedRows?.has(absoluteRowIndex)
+                    ? `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--active`
+                    : ROW_INDEX_CELL_CLASS
                 return (
                   <tr
                     key={`row-${absoluteRowIndex}`}
@@ -217,15 +222,7 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                   >
                     <th
                       role="gridcell"
-                      className={(() => {
-                        if (anchorCell?.rowIndex === absoluteRowIndex) {
-                          return ROW_INDEX_CELL_ANCHOR_CLASS
-                        }
-                        if (highlightedRows?.has(absoluteRowIndex)) {
-                          return `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--active`
-                        }
-                        return ROW_INDEX_CELL_CLASS
-                      })()}
+                      className={rowIndexClassName}
                     >
                       {absoluteRowIndex + 1}
                     </th>
@@ -289,21 +286,9 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                                   )
                               : undefined
                           }
-                          onPointerMove={
-                            onCellPointerMove
-                              ? (event) => onCellPointerMove(event)
-                              : undefined
-                          }
-                          onPointerUp={
-                            onCellPointerUp
-                              ? (event) => onCellPointerUp(event)
-                              : undefined
-                          }
-                          onPointerCancel={
-                            onCellPointerCancel
-                              ? (event) => onCellPointerCancel(event)
-                              : undefined
-                          }
+                          onPointerMove={onCellPointerMove}
+                          onPointerUp={onCellPointerUp}
+                          onPointerCancel={onCellPointerCancel}
                           onDoubleClick={
                             onCellDoubleClick
                               ? () =>
