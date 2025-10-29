@@ -1,9 +1,12 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  type ForwardedRef,
 } from 'react'
 import type {
   PointerEvent as ReactPointerEvent,
@@ -12,6 +15,7 @@ import useColumnMetrics, {
   type ColumnDefinitionInput as ColumnMetricsInput,
 } from '../hooks/useColumnMetrics'
 import useRowMetrics from '../hooks/useRowMetrics'
+import useSelectionControls from '../hooks/useSelectionControls'
 import useVirtualGrid from '../hooks/useVirtualGrid'
 import {
   type ColumnPreset,
@@ -32,6 +36,7 @@ import {
   ROW_INDEX_CHAR_WIDTH,
   ROW_INDEX_PADDING,
 } from '../constants/grid-table'
+import type GridTableHandle from '../types/grid-table'
 import GridTableBody from './GridTableBody'
 import GridTableHeader from './GridTableHeader'
 import GridTableRowIndex from './GridTableRowIndex'
@@ -97,13 +102,16 @@ const resolveHeaderLabel = (
   return toColumnHeader(index)
 }
 
-export const GridTable = ({
-  data: rawData = EMPTY_DATASET_FALLBACK,
-  headerType = 'alpha',
-  overscan,
-  className,
-  style,
-}: GridTableProps) => {
+const GridTableComponent = (
+  {
+    data: rawData = EMPTY_DATASET_FALLBACK,
+    headerType = 'alpha',
+    overscan,
+    className,
+    style,
+  }: GridTableProps,
+  ref: ForwardedRef<GridTableHandle>,
+) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLTextAreaElement | null>(null)
   const editingValueRef = useRef('')
@@ -230,6 +238,76 @@ export const GridTable = ({
   const rowCount = internalRows.length
   const columnCount = resolvedColumns.length
   const totalColumnCount = columnCount + 1
+
+  const normalizedSelectionRange = useMemo<
+    NormalizedSelectionRange | null
+  >(() => {
+    if (selectionRange === null) {
+      return null
+    }
+
+    const { anchor, focus } = selectionRange
+
+    return {
+      topRow: Math.min(anchor.rowIndex, focus.rowIndex),
+      bottomRow: Math.max(anchor.rowIndex, focus.rowIndex),
+      leftColumn: Math.min(anchor.columnIndex, focus.columnIndex),
+      rightColumn: Math.max(anchor.columnIndex, focus.columnIndex),
+    }
+  }, [selectionRange])
+
+  const fullySelectedColumns = useMemo(() => {
+    if (
+      !normalizedSelectionRange ||
+      rowCount === 0 ||
+      columnCount === 0 ||
+      normalizedSelectionRange.topRow !== 0 ||
+      normalizedSelectionRange.bottomRow !== rowCount - 1
+    ) {
+      return new Set<number>()
+    }
+
+    const selected = new Set<number>()
+    for (
+      let columnIndex = normalizedSelectionRange.leftColumn;
+      columnIndex <= normalizedSelectionRange.rightColumn;
+      columnIndex += 1
+    ) {
+      selected.add(columnIndex)
+    }
+    return selected
+  }, [normalizedSelectionRange, rowCount, columnCount])
+
+  const fullySelectedRows = useMemo(() => {
+    if (
+      !normalizedSelectionRange ||
+      rowCount === 0 ||
+      columnCount === 0 ||
+      normalizedSelectionRange.leftColumn !== 0 ||
+      normalizedSelectionRange.rightColumn !== columnCount - 1
+    ) {
+      return new Set<number>()
+    }
+
+    const selected = new Set<number>()
+    for (
+      let rowIndex = normalizedSelectionRange.topRow;
+      rowIndex <= normalizedSelectionRange.bottomRow;
+      rowIndex += 1
+    ) {
+      selected.add(rowIndex)
+    }
+    return selected
+  }, [normalizedSelectionRange, rowCount, columnCount])
+
+  const isAllSelected = useMemo(
+    () =>
+      rowCount > 0 &&
+      columnCount > 0 &&
+      fullySelectedColumns.size === columnCount &&
+      fullySelectedRows.size === rowCount,
+    [rowCount, columnCount, fullySelectedColumns, fullySelectedRows],
+  )
 
   const resetSelectionState = useCallback(() => {
     setSelectionRange(null)
@@ -372,6 +450,16 @@ export const GridTable = ({
       editorRef,
     ],
   )
+
+  const selectionControls = useSelectionControls({
+    rowCount,
+    columnCount,
+    editingCell,
+    commitEditing,
+    updateSelectionState,
+    resetSelectionState,
+  })
+  const { selectRow, selectColumn, selectAll } = selectionControls
 
   const startEditing = useCallback(
     (cell: CellCoordinate) => {
@@ -590,23 +678,6 @@ export const GridTable = ({
     [finalizePointerSelection],
   )
 
-  const normalizedSelectionRange = useMemo<
-    NormalizedSelectionRange | null
-  >(() => {
-    if (selectionRange === null) {
-      return null
-    }
-
-    const { anchor, focus } = selectionRange
-
-    return {
-      topRow: Math.min(anchor.rowIndex, focus.rowIndex),
-      bottomRow: Math.max(anchor.rowIndex, focus.rowIndex),
-      leftColumn: Math.min(anchor.columnIndex, focus.columnIndex),
-      rightColumn: Math.max(anchor.columnIndex, focus.columnIndex),
-    }
-  }, [selectionRange])
-
   const hasRangeSelection = normalizedSelectionRange !== null &&
     (
       normalizedSelectionRange.topRow !== normalizedSelectionRange.bottomRow ||
@@ -753,6 +824,8 @@ export const GridTable = ({
     [editingCell, commitEditing],
   )
 
+  useImperativeHandle(ref, () => selectionControls, [selectionControls])
+
   return (
     <section
       className={className ? `grid-table ${className}` : 'grid-table'}
@@ -790,6 +863,10 @@ export const GridTable = ({
           onCellPointerUp={handleCellPointerUp}
           onCellPointerCancel={handleCellPointerCancel}
           onCellDoubleClick={handleCellDoubleClick}
+          onCornerHeaderClick={selectAll}
+          columnOffset={range.columnStart}
+          isAllSelected={isAllSelected}
+          onColumnHeaderClick={selectColumn}
         />
 
         <CellSelection
@@ -816,6 +893,15 @@ export const GridTable = ({
           contentHeight={contentHeight}
           contentWidth={contentWidth}
           totalRenderedColumns={totalRenderedColumns}
+          onRowHeaderClick={(rowIndex) => {
+            if (rowIndex === null) {
+              selectAll()
+              return
+            }
+            selectRow(rowIndex)
+          }}
+          selectedRows={fullySelectedRows}
+          isAllSelected={isAllSelected}
         />
 
         <GridTableHeader
@@ -823,10 +909,25 @@ export const GridTable = ({
           columnMetrics={visibleColumnMetrics}
           rowIndexWidth={rowIndexWidth}
           spacerWidth={spacerWidth}
+          onColumnHeaderClick={(columnIndex) => {
+            if (columnIndex === null) {
+              selectAll()
+              return
+            }
+            selectColumn(range.columnStart + columnIndex)
+          }}
+          onSelectAll={selectAll}
+          columnOffset={range.columnStart}
+          selectedColumns={fullySelectedColumns}
+          isAllSelected={isAllSelected}
         />
       </div>
     </section>
   )
 }
+
+export const GridTable = forwardRef<GridTableHandle, GridTableProps>(
+  GridTableComponent,
+)
 
 export default GridTable

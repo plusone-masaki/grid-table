@@ -10,6 +10,9 @@ export interface GridTableRowIndexProps {
   contentHeight: number
   totalRenderedColumns: number
   renderRowStartIndex: number
+  onRowHeaderClick?: (rowIndex: number | null) => void
+  selectedRows?: Set<number>
+  isAllSelected?: boolean
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -25,6 +28,9 @@ const GridTableRowIndex = ({
   contentHeight,
   totalRenderedColumns,
   renderRowStartIndex,
+  onRowHeaderClick,
+  selectedRows,
+  isAllSelected,
 }: GridTableRowIndexProps) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -48,7 +54,15 @@ const GridTableRowIndex = ({
         </colgroup>
         <thead>
           <tr role="row">
-            <th role="columnheader" className={ROW_INDEX_HEADER_CLASS} />
+            <th
+              role="columnheader"
+              className={
+                isAllSelected
+                  ? `${ROW_INDEX_HEADER_CLASS} grid-table__row-index-cell--selected`
+                  : ROW_INDEX_HEADER_CLASS
+              }
+              onClick={() => onRowHeaderClick?.(null)}
+            />
           </tr>
         </thead>
         <tbody>
@@ -77,7 +91,15 @@ const GridTableRowIndex = ({
                   height: `${currentRowHeight}px`,
                 }}
               >
-                <th role="gridcell" className={ROW_INDEX_CELL_CLASS}>
+                <th
+                  role="gridcell"
+                  className={
+                    selectedRows?.has(absoluteRowIndex)
+                      ? `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--selected`
+                      : ROW_INDEX_CELL_CLASS
+                  }
+                  onClick={() => onRowHeaderClick?.(absoluteRowIndex)}
+                >
                   {absoluteRowIndex + 1}
                 </th>
               </tr>

@@ -6,6 +6,11 @@ export interface GridTableHeaderProps {
   columnMetrics: ComputedColumnMetrics[]
   rowIndexWidth: number
   spacerWidth: number
+  onColumnHeaderClick?: (columnIndex: number | null) => void
+  onSelectAll?: () => void
+  columnOffset?: number
+  selectedColumns?: Set<number>
+  isAllSelected?: boolean
 }
 
 const GridTableHeader = ({
@@ -13,6 +18,11 @@ const GridTableHeader = ({
   columnMetrics,
   rowIndexWidth,
   spacerWidth,
+  onColumnHeaderClick,
+  onSelectAll,
+  columnOffset = 0,
+  selectedColumns,
+  isAllSelected,
 }: GridTableHeaderProps) => (
   <table className="grid-table__table --header">
     <colgroup>
@@ -28,7 +38,12 @@ const GridTableHeader = ({
       <tr role="row">
         <th
           role="columnheader"
-          className="grid-table__row-index-cell grid-table__row-index-header"
+          className={
+            isAllSelected
+              ? 'grid-table__row-index-cell grid-table__row-index-header grid-table__corner-header--selected'
+              : 'grid-table__row-index-cell grid-table__row-index-header'
+          }
+          onClick={() => onSelectAll?.()}
         />
         {spacerWidth > 0 && (
           <th
@@ -37,11 +52,23 @@ const GridTableHeader = ({
             role="presentation"
           />
         )}
-        {columns.map((column) => (
-          <th key={`header-${column.id}`} role="columnheader">
-            {column.header}
-          </th>
-        ))}
+        {columns.map((column, columnIndex) => {
+          const absoluteColumnIndex = columnOffset + columnIndex
+          const isSelected = selectedColumns?.has(absoluteColumnIndex)
+          const headerClassName = isSelected
+            ? 'grid-table__column-header grid-table__column-header--selected'
+            : 'grid-table__column-header'
+          return (
+            <th
+              key={`header-${column.id}`}
+              role="columnheader"
+              className={headerClassName}
+              onClick={() => onColumnHeaderClick?.(columnIndex)}
+            >
+              {column.header}
+            </th>
+          )
+        })}
       </tr>
     </thead>
   </table>

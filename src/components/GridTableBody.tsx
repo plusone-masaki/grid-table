@@ -40,6 +40,10 @@ export interface GridTableBodyProps {
     event: PointerEvent<HTMLTableCellElement>,
   ) => void
   onCellDoubleClick?: (rowIndex: number, columnIndex: number) => void
+  onCornerHeaderClick?: () => void
+  columnOffset?: number
+  isAllSelected?: boolean
+  onColumnHeaderClick?: (columnIndex: number) => void
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -70,6 +74,10 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   onCellPointerUp,
   onCellPointerCancel,
   onCellDoubleClick,
+  onCornerHeaderClick,
+  columnOffset = 0,
+  isAllSelected,
+  onColumnHeaderClick,
 }) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -102,7 +110,15 @@ const GridTableBody: FC<GridTableBodyProps> = ({
         </colgroup>
         <thead>
           <tr role="row">
-            <th role="columnheader" className={ROW_INDEX_HEADER_CLASS} />
+            <th
+              role="columnheader"
+              className={
+                isAllSelected
+                  ? `${ROW_INDEX_HEADER_CLASS} grid-table__corner-header--selected`
+                  : ROW_INDEX_HEADER_CLASS
+              }
+              onClick={onCornerHeaderClick}
+            />
             {spacerWidth > 0 && (
               <th
                 aria-hidden="true"
@@ -110,8 +126,14 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                 role="presentation"
               />
             )}
-            {columns.map((column) => (
-              <th key={`header-${column.id}`} role="columnheader">
+            {columns.map((column, columnIndex) => (
+              <th
+                key={`header-${column.id}`}
+                role="columnheader"
+                onClick={() =>
+                  onColumnHeaderClick?.(columnOffset + columnIndex)
+                }
+              >
                 {column.header}
               </th>
             ))}
