@@ -12,6 +12,8 @@ export interface GridTableHeaderProps {
   columnOffset?: number
   selectedColumns?: Set<number>
   isAllSelected?: boolean
+  activeColumnIndex?: number | null
+  highlightedColumns?: Set<number>
   onColumnHeaderPointerDown?: (
     event: ReactPointerEvent<HTMLTableCellElement>,
     columnIndex: number,
@@ -31,6 +33,8 @@ const GridTableHeader = ({
   columnOffset = 0,
   selectedColumns,
   isAllSelected,
+  activeColumnIndex,
+  highlightedColumns,
   onColumnHeaderPointerDown,
   onColumnHeaderPointerMove,
   onColumnHeaderPointerUp,
@@ -72,9 +76,20 @@ const GridTableHeader = ({
         {columns.map((column, columnIndex) => {
           const absoluteColumnIndex = columnOffset + columnIndex
           const isSelected = selectedColumns?.has(absoluteColumnIndex)
-          const headerClassName = isSelected
-            ? 'grid-table__column-header grid-table__column-header--selected'
-            : 'grid-table__column-header'
+          const isActive =
+            activeColumnIndex !== null &&
+            activeColumnIndex === absoluteColumnIndex
+          const isHighlighted = highlightedColumns?.has(absoluteColumnIndex)
+          const headerClassName = [
+            'grid-table__column-header',
+            isSelected
+              ? 'grid-table__column-header--selected'
+              : isActive || isHighlighted
+                ? 'grid-table__column-header--active'
+                : null,
+          ]
+            .filter(Boolean)
+            .join(' ')
           return (
             <th
               key={`header-${column.id}`}

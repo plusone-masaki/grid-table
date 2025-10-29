@@ -14,6 +14,8 @@ export interface GridTableRowIndexProps {
   onRowHeaderClick?: (rowIndex: number | null) => void
   selectedRows?: Set<number>
   isAllSelected?: boolean
+  activeRowIndex?: number | null
+  highlightedRows?: Set<number>
   onRowHeaderPointerDown?: (
     event: ReactPointerEvent<HTMLTableCellElement>,
     rowIndex: number,
@@ -45,6 +47,8 @@ const GridTableRowIndex = ({
   onRowHeaderClick,
   selectedRows,
   isAllSelected,
+  activeRowIndex,
+  highlightedRows,
   onRowHeaderPointerDown,
   onRowHeaderPointerMove,
   onRowHeaderPointerUp,
@@ -77,7 +81,9 @@ const GridTableRowIndex = ({
               className={
                 isAllSelected
                   ? `${ROW_INDEX_HEADER_CLASS} grid-table__row-index-cell--selected`
-                  : ROW_INDEX_HEADER_CLASS
+                  : highlightedRows && highlightedRows.size > 0
+                    ? `${ROW_INDEX_HEADER_CLASS} grid-table__row-index-cell--active`
+                    : ROW_INDEX_HEADER_CLASS
               }
               data-row-index={-1}
               onClick={() => onRowHeaderClick?.(null)}
@@ -116,11 +122,18 @@ const GridTableRowIndex = ({
               >
                 <th
                   role="gridcell"
-                  className={
-                    selectedRows?.has(absoluteRowIndex)
-                      ? `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--selected`
-                      : ROW_INDEX_CELL_CLASS
-                  }
+                  className={(() => {
+                    if (selectedRows?.has(absoluteRowIndex)) {
+                      return `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--selected`
+                    }
+                    if (
+                      highlightedRows?.has(absoluteRowIndex) ||
+                      activeRowIndex === absoluteRowIndex
+                    ) {
+                      return `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--active`
+                    }
+                    return ROW_INDEX_CELL_CLASS
+                  })()}
                   data-row-index={absoluteRowIndex}
                   onClick={() => onRowHeaderClick?.(absoluteRowIndex)}
                   onPointerDown={(event) =>

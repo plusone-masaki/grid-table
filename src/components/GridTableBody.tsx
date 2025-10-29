@@ -43,6 +43,8 @@ export interface GridTableBodyProps {
   onCornerHeaderClick?: () => void
   columnOffset?: number
   isAllSelected?: boolean
+  highlightedColumns?: Set<number>
+  highlightedRows?: Set<number>
   onColumnHeaderClick?: (columnIndex: number) => void
   onColumnHeaderPointerDown?: (
     event: ReactPointerEvent<HTMLTableCellElement>,
@@ -90,6 +92,8 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   onCornerHeaderClick,
   columnOffset = 0,
   isAllSelected,
+  highlightedColumns,
+  highlightedRows,
   onColumnHeaderClick,
   onColumnHeaderPointerDown,
   onColumnHeaderPointerMove,
@@ -132,7 +136,9 @@ const GridTableBody: FC<GridTableBodyProps> = ({
               className={
                 isAllSelected
                   ? `${ROW_INDEX_HEADER_CLASS} grid-table__corner-header--selected`
-                  : ROW_INDEX_HEADER_CLASS
+                  : highlightedRows && highlightedRows.size > 0
+                    ? `${ROW_INDEX_HEADER_CLASS} grid-table__corner-header--active`
+                    : ROW_INDEX_HEADER_CLASS
               }
               data-column-index={-1}
               onClick={onCornerHeaderClick}
@@ -148,27 +154,31 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                 role="presentation"
               />
             )}
-            {columns.map((column, columnIndex) => (
-              <th
-                key={`header-${column.id}`}
-                role="columnheader"
-                data-column-index={columnOffset + columnIndex}
-                onPointerDown={(event) =>
-                  onColumnHeaderPointerDown?.(
-                    event,
-                    columnOffset + columnIndex,
-                  )
-                }
-                onPointerMove={onColumnHeaderPointerMove}
-                onPointerUp={onColumnHeaderPointerUp}
-                onPointerCancel={onColumnHeaderPointerCancel}
-                onClick={() =>
-                  onColumnHeaderClick?.(columnOffset + columnIndex)
-                }
-              >
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column, columnIndex) => {
+              const absoluteColumnIndex = columnOffset + columnIndex
+              const isHighlighted = highlightedColumns?.has(absoluteColumnIndex)
+              return (
+                <th
+                  key={`header-${column.id}`}
+                  role="columnheader"
+                  className={
+                    isHighlighted
+                      ? 'grid-table__column-header grid-table__column-header--active'
+                      : 'grid-table__column-header'
+                  }
+                  data-column-index={absoluteColumnIndex}
+                  onPointerDown={(event) =>
+                    onColumnHeaderPointerDown?.(event, absoluteColumnIndex)
+                  }
+                  onPointerMove={onColumnHeaderPointerMove}
+                  onPointerUp={onColumnHeaderPointerUp}
+                  onPointerCancel={onColumnHeaderPointerCancel}
+                  onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
+                >
+                  {column.header}
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody>
@@ -207,11 +217,15 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                   >
                     <th
                       role="gridcell"
-                      className={
-                        anchorCell?.rowIndex === absoluteRowIndex
-                          ? ROW_INDEX_CELL_ANCHOR_CLASS
-                          : ROW_INDEX_CELL_CLASS
-                      }
+                      className={(() => {
+                        if (anchorCell?.rowIndex === absoluteRowIndex) {
+                          return ROW_INDEX_CELL_ANCHOR_CLASS
+                        }
+                        if (highlightedRows?.has(absoluteRowIndex)) {
+                          return `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--active`
+                        }
+                        return ROW_INDEX_CELL_CLASS
+                      })()}
                     >
                       {absoluteRowIndex + 1}
                     </th>

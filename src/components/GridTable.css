@@ -188,6 +188,17 @@
   background-color: #f1f5f9;
 }
 
+.grid-table__table thead th.grid-table__column-header--active,
+.grid-table__table thead th.grid-table__row-index-cell--active {
+  background-color: #dbeafe;
+  color: #0f172a;
+}
+
+.grid-table__row-index-cell.grid-table__row-index-cell--active {
+  background-color: #dbeafe;
+  color: #0f172a;
+}
+
 .grid-table__table thead th.grid-table__column-header--selected,
 .grid-table__table thead th.grid-table__corner-header--selected,
 .grid-table__table thead th.grid-table__row-index-cell--selected,

@@ -309,6 +309,40 @@ const GridTableComponent = (
     [rowCount, columnCount, fullySelectedColumns, fullySelectedRows],
   )
 
+  const highlightedColumns = useMemo(() => {
+    const set = new Set<number>()
+    if (normalizedSelectionRange) {
+      for (
+        let columnIndex = normalizedSelectionRange.leftColumn;
+        columnIndex <= normalizedSelectionRange.rightColumn;
+        columnIndex += 1
+      ) {
+        set.add(columnIndex)
+      }
+    }
+    if (activeCell) {
+      set.add(activeCell.columnIndex)
+    }
+    return set
+  }, [normalizedSelectionRange, activeCell])
+
+  const highlightedRows = useMemo(() => {
+    const set = new Set<number>()
+    if (normalizedSelectionRange) {
+      for (
+        let rowIndex = normalizedSelectionRange.topRow;
+        rowIndex <= normalizedSelectionRange.bottomRow;
+        rowIndex += 1
+      ) {
+        set.add(rowIndex)
+      }
+    }
+    if (activeCell) {
+      set.add(activeCell.rowIndex)
+    }
+    return set
+  }, [normalizedSelectionRange, activeCell])
+
   const resetSelectionState = useCallback(() => {
     setSelectionRange(null)
     setAnchorCell(null)
@@ -1183,6 +1217,8 @@ const GridTableComponent = (
           onCornerHeaderClick={selectAll}
           columnOffset={range.columnStart}
           isAllSelected={isAllSelected}
+          highlightedColumns={highlightedColumns}
+          highlightedRows={highlightedRows}
           onColumnHeaderClick={handleColumnHeaderClick}
           onColumnHeaderPointerDown={handleColumnHeaderPointerDown}
           onColumnHeaderPointerMove={handleColumnHeaderPointerMove}
@@ -1217,6 +1253,8 @@ const GridTableComponent = (
           onRowHeaderClick={handleRowHeaderClick}
           selectedRows={fullySelectedRows}
           isAllSelected={isAllSelected}
+          activeRowIndex={activeCell?.rowIndex ?? null}
+          highlightedRows={highlightedRows}
           onRowHeaderPointerDown={handleRowHeaderPointerDown}
           onRowHeaderPointerMove={handleRowHeaderPointerMove}
           onRowHeaderPointerUp={handleRowHeaderPointerEnd}
@@ -1233,6 +1271,8 @@ const GridTableComponent = (
           columnOffset={range.columnStart}
           selectedColumns={fullySelectedColumns}
           isAllSelected={isAllSelected}
+          activeColumnIndex={activeCell?.columnIndex ?? null}
+          highlightedColumns={highlightedColumns}
           onColumnHeaderPointerDown={handleColumnHeaderPointerDown}
           onColumnHeaderPointerMove={handleColumnHeaderPointerMove}
           onColumnHeaderPointerUp={handleColumnHeaderPointerEnd}
