@@ -1,3 +1,4 @@
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { GridDataset } from 'types/grid'
 import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table';
 
@@ -13,6 +14,19 @@ export interface GridTableRowIndexProps {
   onRowHeaderClick?: (rowIndex: number | null) => void
   selectedRows?: Set<number>
   isAllSelected?: boolean
+  onRowHeaderPointerDown?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    rowIndex: number,
+  ) => void
+  onRowHeaderPointerMove?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
+  onRowHeaderPointerUp?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
+  onRowHeaderPointerCancel?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -31,6 +45,10 @@ const GridTableRowIndex = ({
   onRowHeaderClick,
   selectedRows,
   isAllSelected,
+  onRowHeaderPointerDown,
+  onRowHeaderPointerMove,
+  onRowHeaderPointerUp,
+  onRowHeaderPointerCancel,
 }: GridTableRowIndexProps) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -61,7 +79,12 @@ const GridTableRowIndex = ({
                   ? `${ROW_INDEX_HEADER_CLASS} grid-table__row-index-cell--selected`
                   : ROW_INDEX_HEADER_CLASS
               }
+              data-row-index={-1}
               onClick={() => onRowHeaderClick?.(null)}
+              onPointerDown={(event) => onRowHeaderPointerDown?.(event, -1)}
+              onPointerMove={onRowHeaderPointerMove}
+              onPointerUp={onRowHeaderPointerUp}
+              onPointerCancel={onRowHeaderPointerCancel}
             />
           </tr>
         </thead>
@@ -98,7 +121,14 @@ const GridTableRowIndex = ({
                       ? `${ROW_INDEX_CELL_CLASS} grid-table__row-index-cell--selected`
                       : ROW_INDEX_CELL_CLASS
                   }
+                  data-row-index={absoluteRowIndex}
                   onClick={() => onRowHeaderClick?.(absoluteRowIndex)}
+                  onPointerDown={(event) =>
+                    onRowHeaderPointerDown?.(event, absoluteRowIndex)
+                  }
+                  onPointerMove={onRowHeaderPointerMove}
+                  onPointerUp={onRowHeaderPointerUp}
+                  onPointerCancel={onRowHeaderPointerCancel}
                 >
                   {absoluteRowIndex + 1}
                 </th>

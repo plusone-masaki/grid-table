@@ -5,7 +5,7 @@ import type {
   NormalizedSelectionRange,
 } from 'types/grid'
 import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table'
-import type { FC, PointerEvent } from 'react'
+import type { FC, PointerEvent as ReactPointerEvent } from 'react'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
 export interface GridTableBodyProps {
@@ -26,24 +26,37 @@ export interface GridTableBodyProps {
   contentWidth: number
   contentHeight: number
   onCellPointerDown?: (
-    event: PointerEvent<HTMLTableCellElement>,
+    event: ReactPointerEvent<HTMLTableCellElement>,
     rowIndex: number,
     columnIndex: number,
   ) => void
   onCellPointerMove?: (
-    event: PointerEvent<HTMLTableCellElement>,
+    event: ReactPointerEvent<HTMLTableCellElement>,
   ) => void
   onCellPointerUp?: (
-    event: PointerEvent<HTMLTableCellElement>,
+    event: ReactPointerEvent<HTMLTableCellElement>,
   ) => void
   onCellPointerCancel?: (
-    event: PointerEvent<HTMLTableCellElement>,
+    event: ReactPointerEvent<HTMLTableCellElement>,
   ) => void
   onCellDoubleClick?: (rowIndex: number, columnIndex: number) => void
   onCornerHeaderClick?: () => void
   columnOffset?: number
   isAllSelected?: boolean
   onColumnHeaderClick?: (columnIndex: number) => void
+  onColumnHeaderPointerDown?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerMove?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
+  onColumnHeaderPointerUp?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
+  onColumnHeaderPointerCancel?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+  ) => void
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -78,6 +91,10 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   columnOffset = 0,
   isAllSelected,
   onColumnHeaderClick,
+  onColumnHeaderPointerDown,
+  onColumnHeaderPointerMove,
+  onColumnHeaderPointerUp,
+  onColumnHeaderPointerCancel,
 }) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -117,7 +134,12 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                   ? `${ROW_INDEX_HEADER_CLASS} grid-table__corner-header--selected`
                   : ROW_INDEX_HEADER_CLASS
               }
+              data-column-index={-1}
               onClick={onCornerHeaderClick}
+              onPointerDown={(event) => onColumnHeaderPointerDown?.(event, -1)}
+              onPointerMove={onColumnHeaderPointerMove}
+              onPointerUp={onColumnHeaderPointerUp}
+              onPointerCancel={onColumnHeaderPointerCancel}
             />
             {spacerWidth > 0 && (
               <th
@@ -130,6 +152,16 @@ const GridTableBody: FC<GridTableBodyProps> = ({
               <th
                 key={`header-${column.id}`}
                 role="columnheader"
+                data-column-index={columnOffset + columnIndex}
+                onPointerDown={(event) =>
+                  onColumnHeaderPointerDown?.(
+                    event,
+                    columnOffset + columnIndex,
+                  )
+                }
+                onPointerMove={onColumnHeaderPointerMove}
+                onPointerUp={onColumnHeaderPointerUp}
+                onPointerCancel={onColumnHeaderPointerCancel}
                 onClick={() =>
                   onColumnHeaderClick?.(columnOffset + columnIndex)
                 }
