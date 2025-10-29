@@ -1,3 +1,4 @@
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { ComputedColumnMetrics } from 'types/grid'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
@@ -11,6 +12,13 @@ export interface GridTableHeaderProps {
   columnOffset?: number
   selectedColumns?: Set<number>
   isAllSelected?: boolean
+  onColumnHeaderPointerDown?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerMove?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerUp?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerCancel?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
 }
 
 const GridTableHeader = ({
@@ -23,6 +31,10 @@ const GridTableHeader = ({
   columnOffset = 0,
   selectedColumns,
   isAllSelected,
+  onColumnHeaderPointerDown,
+  onColumnHeaderPointerMove,
+  onColumnHeaderPointerUp,
+  onColumnHeaderPointerCancel,
 }: GridTableHeaderProps) => (
   <table className="grid-table__table --header">
     <colgroup>
@@ -43,6 +55,11 @@ const GridTableHeader = ({
               ? 'grid-table__row-index-cell grid-table__row-index-header grid-table__corner-header--selected'
               : 'grid-table__row-index-cell grid-table__row-index-header'
           }
+          data-column-index={-1}
+          onPointerDown={(event) => onColumnHeaderPointerDown?.(event, -1)}
+          onPointerMove={onColumnHeaderPointerMove}
+          onPointerUp={onColumnHeaderPointerUp}
+          onPointerCancel={onColumnHeaderPointerCancel}
           onClick={() => onSelectAll?.()}
         />
         {spacerWidth > 0 && (
@@ -63,7 +80,14 @@ const GridTableHeader = ({
               key={`header-${column.id}`}
               role="columnheader"
               className={headerClassName}
-              onClick={() => onColumnHeaderClick?.(columnIndex)}
+              data-column-index={absoluteColumnIndex}
+              onPointerDown={(event) =>
+                onColumnHeaderPointerDown?.(event, absoluteColumnIndex)
+              }
+              onPointerMove={onColumnHeaderPointerMove}
+              onPointerUp={onColumnHeaderPointerUp}
+              onPointerCancel={onColumnHeaderPointerCancel}
+              onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
             >
               {column.header}
             </th>

@@ -71,7 +71,6 @@
   position: sticky;
   text-align: center;
   top: 0;
-  cursor: pointer;
 }
 
 .grid-table__table th,
@@ -93,7 +92,6 @@
   position: sticky;
   text-align: right;
   width: 100%;
-  cursor: pointer;
 }
 
 .grid-table__row-index-header {

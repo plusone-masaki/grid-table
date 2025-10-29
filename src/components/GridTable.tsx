@@ -319,6 +319,8 @@ const GridTableComponent = (
     }
     anchorRef.current = null
     lastFocusRef.current = null
+    lastColumnHeaderRef.current = null
+    lastRowHeaderRef.current = null
   }, [])
 
   useEffect(() => {
@@ -386,6 +388,8 @@ const GridTableComponent = (
 
       anchorRef.current = anchorClone
       lastFocusRef.current = focusClone
+      lastColumnHeaderRef.current = anchorClone.columnIndex
+      lastRowHeaderRef.current = anchorClone.rowIndex
     },
     [],
   )
@@ -459,7 +463,320 @@ const GridTableComponent = (
     updateSelectionState,
     resetSelectionState,
   })
-  const { selectRow, selectColumn, selectAll } = selectionControls
+  const {
+    selectRow,
+    selectColumn,
+    selectAll,
+    selectRowRange,
+    selectColumnRange,
+  } = selectionControls
+
+  const lastColumnHeaderRef = useRef<number | null>(null)
+  const lastRowHeaderRef = useRef<number | null>(null)
+  const headerPointerStateRef = useRef<{
+    type: 'row' | 'column' | null
+    pointerId: number | null
+    anchorIndex: number | null
+    hasDragged: boolean
+  }>({ type: null, pointerId: null, anchorIndex: null, hasDragged: false })
+  const suppressColumnClickRef = useRef(false)
+  const suppressRowClickRef = useRef(false)
+
+  const resolveHeaderTargetIndex = (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    type: 'row' | 'column',
+  ): number | null => {
+    const { clientX, clientY } = event.nativeEvent
+    const element = document.elementFromPoint(clientX, clientY) as HTMLElement | null
+    if (!element) {
+      return null
+    }
+
+    const selector = type === 'column' ? '[data-column-index]' : '[data-row-index]'
+    const target = element.closest(selector) as HTMLElement | null
+    if (!target) {
+      return null
+    }
+
+    const attribute =
+      type === 'column'
+        ? target.getAttribute('data-column-index')
+        : target.getAttribute('data-row-index')
+
+    if (attribute === null) {
+      return null
+    }
+
+    const value = Number(attribute)
+    return Number.isNaN(value) ? null : value
+  }
+
+  const clearHeaderPointerState = () => {
+    headerPointerStateRef.current = {
+      type: null,
+      pointerId: null,
+      anchorIndex: null,
+      hasDragged: false,
+    }
+  }
+
+  const handleColumnHeaderPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>, columnIndex: number) => {
+      if (!event.isPrimary || event.button !== 0) {
+        return
+      }
+
+      event.preventDefault()
+
+      suppressColumnClickRef.current = false
+
+      if (columnIndex < 0) {
+        selectAll()
+        lastColumnHeaderRef.current = 0
+        clearHeaderPointerState()
+        return
+      }
+
+      const previousColumnAnchor = lastColumnHeaderRef.current
+      const anchorIndex = event.shiftKey
+        ? previousColumnAnchor ?? selectionRange?.anchor.columnIndex ?? columnIndex
+        : columnIndex
+
+      if (event.shiftKey && previousColumnAnchor === null && !selectionRange) {
+        lastColumnHeaderRef.current = anchorIndex
+        selectColumn(anchorIndex)
+        clearHeaderPointerState()
+        return
+      }
+
+      lastColumnHeaderRef.current = anchorIndex
+
+      selectColumnRange(anchorIndex, columnIndex)
+
+      headerPointerStateRef.current = {
+        type: 'column',
+        pointerId: event.pointerId,
+        anchorIndex,
+        hasDragged: false,
+      }
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // ignore capture failures
+      }
+    },
+    [selectAll, selectColumn, selectColumnRange, selectionRange],
+  )
+
+  const handleColumnHeaderPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      const state = headerPointerStateRef.current
+      if (state.type !== 'column' || state.pointerId === null) {
+        return
+      }
+
+      if (state.pointerId !== event.pointerId) {
+        return
+      }
+
+      const targetIndex = resolveHeaderTargetIndex(event, 'column')
+      if (targetIndex === null || targetIndex < 0) {
+        return
+      }
+
+      if (state.anchorIndex === null) {
+        return
+      }
+
+      if (targetIndex !== state.anchorIndex) {
+        state.hasDragged = true
+      }
+
+      selectColumnRange(state.anchorIndex, targetIndex)
+    },
+    [selectColumnRange],
+  )
+
+  const handleColumnHeaderPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      const state = headerPointerStateRef.current
+      if (state.pointerId !== null && state.pointerId !== event.pointerId) {
+        return
+      }
+
+      const hasDragged = state.hasDragged || event.shiftKey
+      if (hasDragged) {
+        state.hasDragged = true
+      }
+
+      if (state.type === 'column' && hasDragged) {
+        suppressColumnClickRef.current = true
+      } else if (state.type === 'row' && hasDragged) {
+        suppressRowClickRef.current = true
+      }
+
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore release failures
+      }
+
+      clearHeaderPointerState()
+    },
+    [],
+  )
+
+  const handleColumnHeaderClick = useCallback(
+    (absoluteColumnIndex: number) => {
+      if (suppressColumnClickRef.current) {
+        suppressColumnClickRef.current = false
+        return
+      }
+
+      if (absoluteColumnIndex < 0) {
+        selectAll()
+        return
+      }
+
+      if (columnCount === 0) {
+        return
+      }
+
+      const clampedIndex = Math.max(0, Math.min(absoluteColumnIndex, columnCount - 1))
+      selectColumn(clampedIndex)
+    },
+    [selectAll, selectColumn, columnCount],
+  )
+
+  const handleRowHeaderClick = useCallback(
+    (rowIndex: number | null) => {
+      if (suppressRowClickRef.current) {
+        suppressRowClickRef.current = false
+        return
+      }
+
+      if (rowIndex === null || rowIndex < 0) {
+        selectAll()
+        return
+      }
+
+      if (rowCount === 0) {
+        return
+      }
+
+      const clampedIndex = Math.max(0, Math.min(rowIndex, rowCount - 1))
+      selectRow(clampedIndex)
+    },
+    [selectAll, selectRow, rowCount],
+  )
+
+  const handleRowHeaderPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>, rowIndex: number) => {
+      if (!event.isPrimary || event.button !== 0) {
+        return
+      }
+
+      event.preventDefault()
+
+      suppressRowClickRef.current = false
+
+      if (rowIndex < 0) {
+        selectAll()
+        lastRowHeaderRef.current = 0
+        clearHeaderPointerState()
+        return
+      }
+
+      const previousRowAnchor = lastRowHeaderRef.current
+      const anchorIndex = event.shiftKey
+        ? previousRowAnchor ?? selectionRange?.anchor.rowIndex ?? rowIndex
+        : rowIndex
+
+      if (event.shiftKey && previousRowAnchor === null && !selectionRange) {
+        lastRowHeaderRef.current = anchorIndex
+        selectRow(anchorIndex)
+        clearHeaderPointerState()
+        return
+      }
+
+      lastRowHeaderRef.current = anchorIndex
+
+      selectRowRange(anchorIndex, rowIndex)
+
+      headerPointerStateRef.current = {
+        type: 'row',
+        pointerId: event.pointerId,
+        anchorIndex,
+        hasDragged: false,
+      }
+
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId)
+      } catch {
+        // ignore capture failures
+      }
+    },
+    [selectAll, selectRow, selectRowRange, selectionRange],
+  )
+
+  const handleRowHeaderPointerMove = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      const state = headerPointerStateRef.current
+      if (state.type !== 'row' || state.pointerId === null) {
+        return
+      }
+
+      if (state.pointerId !== event.pointerId) {
+        return
+      }
+
+      const targetIndex = resolveHeaderTargetIndex(event, 'row')
+      if (targetIndex === null || targetIndex < 0) {
+        return
+      }
+
+      if (state.anchorIndex === null) {
+        return
+      }
+
+      if (targetIndex !== state.anchorIndex) {
+        state.hasDragged = true
+      }
+
+      selectRowRange(state.anchorIndex, targetIndex)
+    },
+    [selectRowRange],
+  )
+
+  const handleRowHeaderPointerEnd = useCallback(
+    (event: ReactPointerEvent<HTMLTableCellElement>) => {
+      const state = headerPointerStateRef.current
+      if (state.pointerId !== null && state.pointerId !== event.pointerId) {
+        return
+      }
+
+      const hasDragged = state.hasDragged || event.shiftKey
+      if (hasDragged) {
+        state.hasDragged = true
+      }
+
+      if (state.type === 'column' && hasDragged) {
+        suppressColumnClickRef.current = true
+      } else if (state.type === 'row' && hasDragged) {
+        suppressRowClickRef.current = true
+      }
+
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore release failures
+      }
+
+      clearHeaderPointerState()
+    },
+    [],
+  )
 
   const startEditing = useCallback(
     (cell: CellCoordinate) => {
@@ -866,7 +1183,11 @@ const GridTableComponent = (
           onCornerHeaderClick={selectAll}
           columnOffset={range.columnStart}
           isAllSelected={isAllSelected}
-          onColumnHeaderClick={selectColumn}
+          onColumnHeaderClick={handleColumnHeaderClick}
+          onColumnHeaderPointerDown={handleColumnHeaderPointerDown}
+          onColumnHeaderPointerMove={handleColumnHeaderPointerMove}
+          onColumnHeaderPointerUp={handleColumnHeaderPointerEnd}
+          onColumnHeaderPointerCancel={handleColumnHeaderPointerEnd}
         />
 
         <CellSelection
@@ -893,15 +1214,13 @@ const GridTableComponent = (
           contentHeight={contentHeight}
           contentWidth={contentWidth}
           totalRenderedColumns={totalRenderedColumns}
-          onRowHeaderClick={(rowIndex) => {
-            if (rowIndex === null) {
-              selectAll()
-              return
-            }
-            selectRow(rowIndex)
-          }}
+          onRowHeaderClick={handleRowHeaderClick}
           selectedRows={fullySelectedRows}
           isAllSelected={isAllSelected}
+          onRowHeaderPointerDown={handleRowHeaderPointerDown}
+          onRowHeaderPointerMove={handleRowHeaderPointerMove}
+          onRowHeaderPointerUp={handleRowHeaderPointerEnd}
+          onRowHeaderPointerCancel={handleRowHeaderPointerEnd}
         />
 
         <GridTableHeader
@@ -909,17 +1228,15 @@ const GridTableComponent = (
           columnMetrics={visibleColumnMetrics}
           rowIndexWidth={rowIndexWidth}
           spacerWidth={spacerWidth}
-          onColumnHeaderClick={(columnIndex) => {
-            if (columnIndex === null) {
-              selectAll()
-              return
-            }
-            selectColumn(range.columnStart + columnIndex)
-          }}
+          onColumnHeaderClick={handleColumnHeaderClick}
           onSelectAll={selectAll}
           columnOffset={range.columnStart}
           selectedColumns={fullySelectedColumns}
           isAllSelected={isAllSelected}
+          onColumnHeaderPointerDown={handleColumnHeaderPointerDown}
+          onColumnHeaderPointerMove={handleColumnHeaderPointerMove}
+          onColumnHeaderPointerUp={handleColumnHeaderPointerEnd}
+          onColumnHeaderPointerCancel={handleColumnHeaderPointerEnd}
         />
       </div>
     </section>
