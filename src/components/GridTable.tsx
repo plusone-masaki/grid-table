@@ -1,30 +1,12 @@
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-  type ForwardedRef,
-} from 'react'
-import type {
-  PointerEvent as ReactPointerEvent,
-} from 'react'
-import useColumnMetrics, {
-  type ColumnDefinitionInput as ColumnMetricsInput,
-} from '../hooks/useColumnMetrics'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import type { ForwardedRef, PointerEvent as ReactPointerEvent } from 'react'
+import useColumnMetrics from '../hooks/useColumnMetrics'
+import type { ColumnDefinitionInput as ColumnMetricsInput } from '../hooks/useColumnMetrics'
 import useRowMetrics from '../hooks/useRowMetrics'
 import useHeaderSelection from '../hooks/useHeaderSelection'
 import useSelectionControls from '../hooks/useSelectionControls'
 import useVirtualGrid from '../hooks/useVirtualGrid'
-import {
-  type ColumnPreset,
-  type GridDataset,
-  type CellCoordinate,
-  type GridRow,
-  type GridTableProps,
-} from 'types/grid'
+import type { ColumnPreset, GridDataset, CellCoordinate, GridRow, GridTableProps } from 'types/grid'
 import {
   DEFAULT_OVERSCAN,
   EMPTY_DATASET_FALLBACK,
@@ -40,8 +22,6 @@ import GridTableHeader from './GridTableHeader'
 import GridTableRowIndex from './GridTableRowIndex'
 import CellSelection from './CellSelection'
 import './GridTable.css'
-
-type ResolvedColumn = ColumnMetricsInput
 
 const toColumnHeader = (index: number): string => {
   let result = ''
@@ -145,7 +125,7 @@ const GridTableComponent = (
     headerSelectionApiRef.current.reset()
   }, [])
 
-  const resolvedColumns: ResolvedColumn[] = useMemo(() => {
+  const resolvedColumns: ColumnMetricsInput[] = useMemo(() => {
     const columnKeys = resolveColumnKeys(headerRow, bodyRows)
 
     return columnKeys.map((key, index) => ({

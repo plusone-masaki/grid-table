@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { SelectionRectangle } from 'types/grid'
 
@@ -218,14 +213,6 @@ const CellSelection = ({
   }, [editingBounds, computeEditorSize, editorRef])
 
   useEffect(() => {
-    if (!editingBounds) {
-      return
-    }
-
-    computeEditorSize()
-  }, [editingBounds, computeEditorSize])
-
-  useEffect(() => {
     if (typeof window === 'undefined' || !editingBounds) {
       return
     }
@@ -258,18 +245,20 @@ const CellSelection = ({
       onEditorInput(value)
     }
 
-    if (typeof window !== 'undefined') {
+    const scheduleResize = () => {
+      if (typeof window === 'undefined') {
+        computeEditorSize()
+        return
+      }
       if (resizeFrameRef.current !== null) {
         window.cancelAnimationFrame(resizeFrameRef.current)
       }
       resizeFrameRef.current = window.requestAnimationFrame(() => {
         computeEditorSize()
       })
-      computeEditorSize()
-      return
     }
 
-    computeEditorSize()
+    scheduleResize()
   }, [computeEditorSize, onEditorInput])
 
   return (
@@ -326,7 +315,7 @@ const CellSelection = ({
             left: `${editingBounds.left}px`,
             width: `${editorSize?.width ?? editingBounds.width}px`,
             height: `${editorSize?.height ?? editingBounds.height}px`,
-            maxWidth: `${editorSize?.maxWidth}px`,
+            maxWidth: editorSize ? `${editorSize.maxWidth}px` : undefined,
           }}
         />
       )}

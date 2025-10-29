@@ -1,11 +1,6 @@
-import type {
-  CellCoordinate,
-  ComputedColumnMetrics,
-  GridDataset,
-  NormalizedSelectionRange,
-} from 'types/grid'
-import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table'
 import type { FC, PointerEvent as ReactPointerEvent } from 'react'
+import type { CellCoordinate, ComputedColumnMetrics, GridDataset, NormalizedSelectionRange } from 'types/grid'
+import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table'
 import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
 
 export interface GridTableBodyProps {
