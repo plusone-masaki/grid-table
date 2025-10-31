@@ -6,6 +6,7 @@ import type {
 } from '../types/grid'
 import {
   DEFAULT_SAMPLE_SIZE,
+  MAX_COLUMN_WIDTH,
   MIN_COLUMN_WIDTH,
 } from '../constants/grid-table'
 import {
@@ -24,6 +25,7 @@ interface UseColumnMetricsParams {
   data: GridDataset
   sampleSize?: number
   priorityRowIndices?: number[]
+  manualColumnWidths?: Record<string, number>
 }
 
 const measureValueContentWidth = (value: GridCellValue): number => {
@@ -45,11 +47,15 @@ const measureValueContentWidth = (value: GridCellValue): number => {
   return maxWidth
 }
 
+const clampWidth = (value: number): number =>
+  Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, value))
+
 export const useColumnMetrics = ({
   columns,
   data,
   sampleSize = DEFAULT_SAMPLE_SIZE,
   priorityRowIndices,
+  manualColumnWidths,
 }: UseColumnMetricsParams): ComputedColumnMetrics[] =>
   useMemo(() => {
     const sampleIndices: number[] = []
@@ -83,9 +89,10 @@ export const useColumnMetrics = ({
         return Math.max(maxWidth, cellWidth)
       }, headerContentWidth)
 
-      const width = Math.max(
-        Math.ceil(bodyWidth + horizontalInset),
-        MIN_COLUMN_WIDTH,
+      const computedWidth = Math.ceil(bodyWidth + horizontalInset)
+      const manualWidth = manualColumnWidths?.[column.id]
+      const width = clampWidth(
+        manualWidth == null ? computedWidth : manualWidth,
       )
       const metric: ComputedColumnMetrics = {
         id: column.id,
@@ -97,6 +104,6 @@ export const useColumnMetrics = ({
       offset += width
       return metric
     })
-  }, [columns, data, sampleSize, priorityRowIndices])
+  }, [columns, data, sampleSize, priorityRowIndices, manualColumnWidths])
 
 export default useColumnMetrics

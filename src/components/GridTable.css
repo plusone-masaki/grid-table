@@ -1,8 +1,6 @@
 .grid-table {
   background-color: #fff;
   border: 1px solid #d0d7de;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -104,14 +102,14 @@
 .grid-table__table tbody td {
   background-color: #fff;
   outline: none;
-  white-space: pre;
   overflow: hidden;
+  white-space: pre;
 }
 
 .grid-table__cell--multiline {
-  white-space: pre-wrap;
   overflow-wrap: break-word;
   text-overflow: clip;
+  white-space: pre-wrap;
 }
 
 .grid-table__cell--singleline {
@@ -132,16 +130,16 @@
 
 .grid-table__selection-outline {
   background-color: transparent;
-  border: 1px solid #2563eb;
+  border: 1px solid #4B89FF;
   border-radius: 0;
   box-sizing: border-box;
   height: 0;
   left: 0;
+  pointer-events: none;
   position: absolute;
   top: 0;
   transform: translate(-1px, -1px);
   width: 0;
-  pointer-events: none;
 }
 
 .grid-table__selection-fill {
@@ -151,25 +149,25 @@
   box-sizing: border-box;
   height: 0;
   left: 0;
+  pointer-events: none;
   position: absolute;
   top: 0;
   transform: translate(-1px, -1px);
   width: 0;
-  pointer-events: none;
 }
 
 .grid-table__selection-anchor-outline {
   background-color: transparent;
-  border: 2px solid #2563eb;
+  border: 2px solid #4B89FF;
   border-radius: 0;
   box-sizing: border-box;
   height: 0;
   left: 0;
+  pointer-events: none;
   position: absolute;
   top: 0;
   transform: translate(-1px, -1px);
   width: 0;
-  pointer-events: none;
 }
 
 .grid-table__cell--selected {
@@ -186,25 +184,89 @@
 
 .grid-table__column-header {
   background-color: #f1f5f9;
+  padding-right: 10px;
+  position: relative;
+}
+
+.grid-table__column-header-content {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+
+.grid-table__column-header-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid-table__column-resize-handle {
+  background-color: #60a5fa;
+  cursor: col-resize;
+  pointer-events: auto;
+  position: absolute;
+  touch-action: none;
+  transition: background-color 120ms ease;
+  width: 5px;
+}
+
+.grid-table__column-resize-handle:hover,
+.grid-table__column-resize-handle:active {
+  background-color: #4B89FF;
 }
 
 .grid-table__table thead th.grid-table__column-header--active,
 .grid-table__table thead th.grid-table__row-index-cell--active {
-  background-color: #dbeafe;
+  background-color: #dcdcdc;
   color: #0f172a;
 }
 
 .grid-table__row-index-cell.grid-table__row-index-cell--active {
-  background-color: #dbeafe;
+  background-color: #dcdcdc;
   color: #0f172a;
+}
+
+.grid-table__row-index-cell {
+  position: relative;
+}
+
+.grid-table__row-index-cell-content {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  width: 100%;
+}
+
+.grid-table__row-index-label {
+  pointer-events: none;
+}
+
+.grid-table__row-resize-handle {
+  background-color: #60a5fa;
+  cursor: row-resize;
+  height: 5px;
+  pointer-events: auto;
+  position: absolute;
+  touch-action: none;
+  transition: background-color 120ms ease;
+  width: 100%;
+}
+
+.grid-table__row-resize-handle:hover,
+.grid-table__row-resize-handle:active {
+  background-color: #4B89FF;
 }
 
 .grid-table__table thead th.grid-table__column-header--selected,
 .grid-table__table thead th.grid-table__corner-header--selected,
 .grid-table__table thead th.grid-table__row-index-cell--selected,
 .grid-table__row-index-cell.grid-table__row-index-cell--selected {
-  background-color: #318afc;
-  color: #fff;
+  background-color: #8eb0e7;
 }
 
 .grid-table__table thead th.grid-table__column-header--selected {
@@ -221,8 +283,7 @@
 
 .grid-table__cell-editor {
   background-color: #fff;
-  border: 2px solid #2563eb;
-  border-radius: 4px;
+  border: 2px solid #4B89FF;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
   box-sizing: border-box;
   font-family: inherit;
@@ -235,4 +296,39 @@
   resize: none;
   white-space: pre-wrap;
   z-index: 30;
+}
+
+.grid-table__resize-guide {
+  background-color: #4B89FF;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 120ms ease;
+  z-index: 3;
+}
+
+.grid-table__resize-guide--column {
+  bottom: 0;
+  top: 0;
+  width: 1px;
+}
+
+.grid-table__resize-guide--row {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+.grid-table__resize-guide--active {
+  opacity: 1;
+}
+
+.grid-table__resize-handles-layer {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 2;
 }

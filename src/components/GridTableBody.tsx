@@ -54,6 +54,14 @@ export interface GridTableBodyProps {
   onColumnHeaderPointerCancel?: (
     event: ReactPointerEvent<HTMLTableCellElement>,
   ) => void
+  onColumnHeaderPointerLeave?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerEnter?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -94,6 +102,8 @@ const GridTableBody: FC<GridTableBodyProps> = ({
   onColumnHeaderPointerMove,
   onColumnHeaderPointerUp,
   onColumnHeaderPointerCancel,
+  onColumnHeaderPointerLeave,
+  onColumnHeaderPointerEnter,
 }) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -161,16 +171,26 @@ const GridTableBody: FC<GridTableBodyProps> = ({
                       ? 'grid-table__column-header grid-table__column-header--active'
                       : 'grid-table__column-header'
                   }
-                  data-column-index={absoluteColumnIndex}
-                  onPointerDown={(event) =>
-                    onColumnHeaderPointerDown?.(event, absoluteColumnIndex)
-                  }
-                  onPointerMove={onColumnHeaderPointerMove}
-                  onPointerUp={onColumnHeaderPointerUp}
-                  onPointerCancel={onColumnHeaderPointerCancel}
-                  onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
-                >
-                  {column.header}
+                data-column-index={absoluteColumnIndex}
+                onPointerDown={(event) =>
+                  onColumnHeaderPointerDown?.(event, absoluteColumnIndex)
+                }
+                onPointerMove={onColumnHeaderPointerMove}
+                onPointerUp={onColumnHeaderPointerUp}
+                onPointerCancel={onColumnHeaderPointerCancel}
+                onPointerLeave={(event) =>
+                  onColumnHeaderPointerLeave?.(event, absoluteColumnIndex)
+                }
+                onPointerEnter={(event) =>
+                  onColumnHeaderPointerEnter?.(event, absoluteColumnIndex)
+                }
+                onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
+              >
+                  <div className="grid-table__column-header-content">
+                    <span className="grid-table__column-header-label">
+                      {column.header}
+                    </span>
+                  </div>
                 </th>
               )
             })}

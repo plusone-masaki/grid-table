@@ -21,6 +21,14 @@ export interface GridTableHeaderProps {
   onColumnHeaderPointerMove?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
   onColumnHeaderPointerUp?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
   onColumnHeaderPointerCancel?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerLeave?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerEnter?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
 }
 
 const GridTableHeader = ({
@@ -39,6 +47,8 @@ const GridTableHeader = ({
   onColumnHeaderPointerMove,
   onColumnHeaderPointerUp,
   onColumnHeaderPointerCancel,
+  onColumnHeaderPointerLeave,
+  onColumnHeaderPointerEnter,
 }: GridTableHeaderProps) => (
   <table className="grid-table__table --header">
     <colgroup>
@@ -64,6 +74,8 @@ const GridTableHeader = ({
           onPointerMove={onColumnHeaderPointerMove}
           onPointerUp={onColumnHeaderPointerUp}
           onPointerCancel={onColumnHeaderPointerCancel}
+          onPointerLeave={(event) => onColumnHeaderPointerLeave?.(event, -1)}
+          onPointerEnter={(event) => onColumnHeaderPointerEnter?.(event, -1)}
           onClick={() => onSelectAll?.()}
         />
         {spacerWidth > 0 && (
@@ -102,9 +114,19 @@ const GridTableHeader = ({
               onPointerMove={onColumnHeaderPointerMove}
               onPointerUp={onColumnHeaderPointerUp}
               onPointerCancel={onColumnHeaderPointerCancel}
+              onPointerLeave={(event) =>
+                onColumnHeaderPointerLeave?.(event, absoluteColumnIndex)
+              }
+              onPointerEnter={(event) =>
+                onColumnHeaderPointerEnter?.(event, absoluteColumnIndex)
+              }
               onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
             >
-              {column.header}
+              <div className="grid-table__column-header-content">
+                <span className="grid-table__column-header-label">
+                  {column.header}
+                </span>
+              </div>
             </th>
           )
         })}

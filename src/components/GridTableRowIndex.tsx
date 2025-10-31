@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { GridDataset } from 'types/grid'
-import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table';
+import { HEADER_HEIGHT, MIN_ROW_HEIGHT } from '../constants/grid-table'
 
 export interface GridTableRowIndexProps {
   rows: GridDataset
@@ -29,6 +29,14 @@ export interface GridTableRowIndexProps {
   onRowHeaderPointerCancel?: (
     event: ReactPointerEvent<HTMLTableCellElement>,
   ) => void
+  onRowHeaderPointerLeave?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    rowIndex: number,
+  ) => void
+  onRowHeaderPointerEnter?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    rowIndex: number,
+  ) => void
 }
 
 const ROW_INDEX_HEADER_CLASS =
@@ -53,6 +61,8 @@ const GridTableRowIndex = ({
   onRowHeaderPointerMove,
   onRowHeaderPointerUp,
   onRowHeaderPointerCancel,
+  onRowHeaderPointerLeave,
+  onRowHeaderPointerEnter,
 }: GridTableRowIndexProps) => {
   const fallbackRowHeight =
     rowHeights.find((height) => Number.isFinite(height) && height > 0) ??
@@ -91,6 +101,8 @@ const GridTableRowIndex = ({
               onPointerMove={onRowHeaderPointerMove}
               onPointerUp={onRowHeaderPointerUp}
               onPointerCancel={onRowHeaderPointerCancel}
+              onPointerLeave={(event) => onRowHeaderPointerLeave?.(event, -1)}
+              onPointerEnter={(event) => onRowHeaderPointerEnter?.(event, -1)}
             />
           </tr>
         </thead>
@@ -142,8 +154,18 @@ const GridTableRowIndex = ({
                   onPointerMove={onRowHeaderPointerMove}
                   onPointerUp={onRowHeaderPointerUp}
                   onPointerCancel={onRowHeaderPointerCancel}
+                  onPointerLeave={(event) =>
+                    onRowHeaderPointerLeave?.(event, absoluteRowIndex)
+                  }
+                  onPointerEnter={(event) =>
+                    onRowHeaderPointerEnter?.(event, absoluteRowIndex)
+                  }
                 >
-                  {absoluteRowIndex + 1}
+                  <div className="grid-table__row-index-cell-content">
+                    <span className="grid-table__row-index-label">
+                      {absoluteRowIndex + 1}
+                    </span>
+                  </div>
                 </th>
               </tr>
             )

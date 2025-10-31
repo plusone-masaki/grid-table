@@ -17,8 +17,10 @@ export const HEADER_HEIGHT = 24
 
 export const DEFAULT_SAMPLE_SIZE = 50
 
-export const MIN_COLUMN_WIDTH = 80
+export const MIN_COLUMN_WIDTH = 24
+export const MAX_COLUMN_WIDTH = 640
 export const MIN_ROW_HEIGHT = 22
+export const MAX_ROW_HEIGHT = 240
 
 export const DEFAULT_ROW_COUNT = 120
 export const DEFAULT_COLUMN_COUNT = 60

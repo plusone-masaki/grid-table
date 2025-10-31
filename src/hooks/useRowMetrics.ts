@@ -7,6 +7,7 @@ import type {
 } from 'types/grid'
 import {
   DEFAULT_SAMPLE_SIZE,
+  MAX_ROW_HEIGHT,
   MIN_ROW_HEIGHT,
 } from '../constants/grid-table'
 import { getCellContentInsets } from '../utils/text-measurement'
@@ -22,10 +23,14 @@ interface UseRowMetricsParams {
   data: GridDataset
   sampleSize?: number
   priorityRowIndices?: number[]
+  manualRowHeights?: Map<number, number>
 }
 
 const countExplicitLines = (value: string): number =>
   Math.max(value.split(/\r?\n/).length, 1)
+
+const clampHeight = (value: number): number =>
+  Math.min(MAX_ROW_HEIGHT, Math.max(MIN_ROW_HEIGHT, value))
 
 export const useRowMetrics = ({
   columns,
@@ -33,6 +38,7 @@ export const useRowMetrics = ({
   data,
   sampleSize = DEFAULT_SAMPLE_SIZE,
   priorityRowIndices,
+  manualRowHeights,
 }: UseRowMetricsParams): ComputedRowMetrics =>
   useMemo(() => {
     const { baseLineHeight, lineIncrement } = getCellContentInsets()
@@ -43,7 +49,7 @@ export const useRowMetrics = ({
       const extraLines = Math.max(lineCount - 1, 0)
       const height =
         effectiveBaseLineHeight + extraLines * effectiveLineIncrement
-      return Math.max(height, MIN_ROW_HEIGHT)
+      return clampHeight(height)
     }
 
     const headerBaselineHeight = columns.reduce((maxHeight, column) => {
@@ -104,9 +110,18 @@ export const useRowMetrics = ({
       }
     }
 
-    const rowHeights = data.map((row) => {
+    const rowHeights = data.map((row, rowIndex) => {
       if (!row) {
-        return dominantHeight
+        const manualHeight = manualRowHeights?.get(rowIndex)
+        if (manualHeight !== undefined) {
+          return clampHeight(manualHeight)
+        }
+        return clampHeight(dominantHeight)
+      }
+
+      const manualHeight = manualRowHeights?.get(rowIndex)
+      if (manualHeight !== undefined) {
+        return clampHeight(manualHeight)
       }
 
       const rowHeight = columns.reduce((rowMax, column) => {
@@ -114,7 +129,9 @@ export const useRowMetrics = ({
         return Math.max(rowMax, cellHeight)
       }, effectiveBaseLineHeight)
 
-      return Math.max(rowHeight, headerBaselineHeight, effectiveBaseLineHeight)
+      return clampHeight(
+        Math.max(rowHeight, headerBaselineHeight, effectiveBaseLineHeight),
+      )
     })
 
     const rowOffsets: number[] = new Array(rowHeights.length)
@@ -129,6 +146,6 @@ export const useRowMetrics = ({
       offsets: rowOffsets,
       totalHeight: runningOffset,
     }
-  }, [columns, data, sampleSize, priorityRowIndices])
+  }, [columns, data, sampleSize, priorityRowIndices, manualRowHeights])
 
 export default useRowMetrics
