@@ -1,0 +1,334 @@
+.grid-table {
+  background-color: #fff;
+  border: 1px solid #d0d7de;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.grid-table__scroll {
+  flex: 1;
+  height: 100%;
+  overflow: auto;
+  position: relative;
+  width: 100%;
+}
+
+.grid-table__empty {
+  background-color: #fff;
+  color: #64748b;
+  font-size: 0.95rem;
+  padding: 32px;
+  text-align: center;
+}
+
+.grid-table__spacer {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.grid-table__table {
+  background-color: #fff;
+  border-collapse: separate;
+  border-spacing: 0;
+  pointer-events: auto;
+  table-layout: fixed;
+}
+
+.grid-table__table.--master {
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: max-content;
+}
+
+.grid-table__table.--header {
+  position: sticky;
+  top: 0;
+  width: max-content;
+}
+
+.grid-table__table.--number {
+  left: 0;
+  position: sticky;
+}
+
+.grid-table__table thead th {
+  background-color: #f1f5f9;
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+  color: #0f172a;
+  font-weight: normal;
+  height: 24px;
+  line-height: 24px;
+  position: sticky;
+  text-align: center;
+  top: 0;
+}
+
+.grid-table__table th,
+.grid-table__table td {
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  font-size: 14px;
+  padding: 0 4px;
+  user-select: none;
+  white-space: nowrap;
+  width: auto;
+}
+
+.grid-table__row-index-cell {
+  background-color: #f1f5f9;
+  box-sizing: border-box;
+  font-weight: normal;
+  left: 0;
+  position: sticky;
+  text-align: right;
+  width: 100%;
+}
+
+.grid-table__row-index-header {
+  border-right: 1px solid #e2e8f0;
+  box-shadow: inset 0 -1px 0 #e2e8f0;
+  top: 0;
+  z-index: 1;
+}
+
+.grid-table__table tbody td {
+  background-color: #fff;
+  outline: none;
+  overflow: hidden;
+  white-space: pre;
+}
+
+.grid-table__cell--multiline {
+  overflow-wrap: break-word;
+  text-overflow: clip;
+  white-space: pre-wrap;
+}
+
+.grid-table__cell--singleline {
+  white-space: pre;
+}
+
+.grid-table__column-spacer {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.grid-table__row-spacer td {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+}
+
+.grid-table__selection-outline {
+  background-color: transparent;
+  border: 1px solid #4B89FF;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+}
+
+.grid-table__selection-fill {
+  background-color: rgba(37, 99, 235, 0.12);
+  border: none;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+}
+
+.grid-table__selection-anchor-outline {
+  background-color: transparent;
+  border: 2px solid #4B89FF;
+  border-radius: 0;
+  box-sizing: border-box;
+  height: 0;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  transform: translate(-1px, -1px);
+  width: 0;
+}
+
+.grid-table__cell--selected {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.grid-table__cell--anchor {
+  background-color: rgba(37, 99, 235, 0.18);
+}
+
+.grid-table__row-index-cell--anchor {
+  background-color: rgba(37, 99, 235, 0.18);
+}
+
+.grid-table__column-header {
+  background-color: #f1f5f9;
+  padding-right: 10px;
+  position: relative;
+}
+
+.grid-table__column-header-content {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+}
+
+.grid-table__column-header-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid-table__column-resize-handle {
+  background-color: #60a5fa;
+  cursor: col-resize;
+  pointer-events: auto;
+  position: absolute;
+  touch-action: none;
+  transition: background-color 120ms ease;
+  width: 5px;
+}
+
+.grid-table__column-resize-handle:hover,
+.grid-table__column-resize-handle:active {
+  background-color: #4B89FF;
+}
+
+.grid-table__table thead th.grid-table__column-header--active,
+.grid-table__table thead th.grid-table__row-index-cell--active {
+  background-color: #dcdcdc;
+  color: #0f172a;
+}
+
+.grid-table__row-index-cell.grid-table__row-index-cell--active {
+  background-color: #dcdcdc;
+  color: #0f172a;
+}
+
+.grid-table__row-index-cell {
+  position: relative;
+}
+
+.grid-table__row-index-cell-content {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: flex-end;
+  position: relative;
+  width: 100%;
+}
+
+.grid-table__row-index-label {
+  pointer-events: none;
+}
+
+.grid-table__row-resize-handle {
+  background-color: #60a5fa;
+  cursor: row-resize;
+  height: 5px;
+  pointer-events: auto;
+  position: absolute;
+  touch-action: none;
+  transition: background-color 120ms ease;
+  width: 100%;
+}
+
+.grid-table__row-resize-handle:hover,
+.grid-table__row-resize-handle:active {
+  background-color: #4B89FF;
+}
+
+.grid-table__table thead th.grid-table__column-header--selected,
+.grid-table__table thead th.grid-table__corner-header--selected,
+.grid-table__table thead th.grid-table__row-index-cell--selected,
+.grid-table__row-index-cell.grid-table__row-index-cell--selected {
+  background-color: #8eb0e7;
+}
+
+.grid-table__table thead th.grid-table__column-header--selected {
+  box-shadow: inset 0 -1px 0 #60a5fa;
+}
+
+.grid-table__table thead th.grid-table__corner-header--selected {
+  box-shadow: inset 0 -1px 0 #60a5fa, inset -1px 0 0 #60a5fa;
+}
+
+.grid-table__row-index-cell.grid-table__row-index-cell--selected {
+  box-shadow: inset -1px 0 0 #60a5fa;
+}
+
+.grid-table__cell-editor {
+  background-color: #fff;
+  border: 2px solid #4B89FF;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  outline: none;
+  overflow: hidden;
+  padding: 0 3px 0 2px;
+  position: absolute;
+  resize: none;
+  white-space: pre-wrap;
+  z-index: 30;
+}
+
+.grid-table__resize-guide {
+  background-color: #4B89FF;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 120ms ease;
+  z-index: 3;
+}
+
+.grid-table__resize-guide--column {
+  bottom: 0;
+  top: 0;
+  width: 1px;
+}
+
+.grid-table__resize-guide--row {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+.grid-table__resize-guide--active {
+  opacity: 1;
+}
+
+.grid-table__resize-handles-layer {
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 100%;
+  z-index: 2;
+}

@@ -1,0 +1,138 @@
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { ComputedColumnMetrics } from 'types/grid'
+import type { ColumnDefinitionInput } from '../hooks/useColumnMetrics'
+
+export interface GridTableHeaderProps {
+  columns: ColumnDefinitionInput[]
+  columnMetrics: ComputedColumnMetrics[]
+  rowIndexWidth: number
+  spacerWidth: number
+  onColumnHeaderClick?: (columnIndex: number) => void
+  onSelectAll?: () => void
+  columnOffset?: number
+  selectedColumns?: Set<number>
+  isAllSelected?: boolean
+  activeColumnIndex?: number | null
+  highlightedColumns?: Set<number>
+  onColumnHeaderPointerDown?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerMove?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerUp?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerCancel?: (event: ReactPointerEvent<HTMLTableCellElement>) => void
+  onColumnHeaderPointerLeave?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+  onColumnHeaderPointerEnter?: (
+    event: ReactPointerEvent<HTMLTableCellElement>,
+    columnIndex: number,
+  ) => void
+}
+
+const GridTableHeader = ({
+  columns,
+  columnMetrics,
+  rowIndexWidth,
+  spacerWidth,
+  onColumnHeaderClick,
+  onSelectAll,
+  columnOffset = 0,
+  selectedColumns,
+  isAllSelected,
+  activeColumnIndex,
+  highlightedColumns,
+  onColumnHeaderPointerDown,
+  onColumnHeaderPointerMove,
+  onColumnHeaderPointerUp,
+  onColumnHeaderPointerCancel,
+  onColumnHeaderPointerLeave,
+  onColumnHeaderPointerEnter,
+}: GridTableHeaderProps) => (
+  <table className="grid-table__table --header">
+    <colgroup>
+      <col style={{ width: rowIndexWidth }} />
+      {spacerWidth > 0 && (
+        <col style={{ width: spacerWidth }} />
+      )}
+      {columnMetrics.map((metric) => (
+        <col key={`col-${metric.id}`} style={{ width: metric.width }} />
+      ))}
+    </colgroup>
+    <thead>
+      <tr role="row">
+        <th
+          role="columnheader"
+          className={
+            isAllSelected
+              ? 'grid-table__row-index-cell grid-table__row-index-header grid-table__corner-header--selected'
+              : 'grid-table__row-index-cell grid-table__row-index-header'
+          }
+          data-column-index={-1}
+          onPointerDown={(event) => onColumnHeaderPointerDown?.(event, -1)}
+          onPointerMove={onColumnHeaderPointerMove}
+          onPointerUp={onColumnHeaderPointerUp}
+          onPointerCancel={onColumnHeaderPointerCancel}
+          onPointerLeave={(event) => onColumnHeaderPointerLeave?.(event, -1)}
+          onPointerEnter={(event) => onColumnHeaderPointerEnter?.(event, -1)}
+          onClick={() => onSelectAll?.()}
+        />
+        {spacerWidth > 0 && (
+          <th
+            aria-hidden="true"
+            className="grid-table__column-spacer"
+            role="presentation"
+          />
+        )}
+        {columns.map((column, columnIndex) => {
+          const absoluteColumnIndex = columnOffset + columnIndex
+          const isSelected = selectedColumns?.has(absoluteColumnIndex)
+          const isActive =
+            activeColumnIndex !== null &&
+            activeColumnIndex === absoluteColumnIndex
+          const isHighlighted = highlightedColumns?.has(absoluteColumnIndex)
+          const headerClassName = [
+            'grid-table__column-header',
+            isSelected
+              ? 'grid-table__column-header--selected'
+              : isActive || isHighlighted
+                ? 'grid-table__column-header--active'
+                : null,
+          ]
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <th
+              key={`header-${column.id}`}
+              role="columnheader"
+              className={headerClassName}
+              data-column-index={absoluteColumnIndex}
+              onPointerDown={(event) =>
+                onColumnHeaderPointerDown?.(event, absoluteColumnIndex)
+              }
+              onPointerMove={onColumnHeaderPointerMove}
+              onPointerUp={onColumnHeaderPointerUp}
+              onPointerCancel={onColumnHeaderPointerCancel}
+              onPointerLeave={(event) =>
+                onColumnHeaderPointerLeave?.(event, absoluteColumnIndex)
+              }
+              onPointerEnter={(event) =>
+                onColumnHeaderPointerEnter?.(event, absoluteColumnIndex)
+              }
+              onClick={() => onColumnHeaderClick?.(absoluteColumnIndex)}
+            >
+              <div className="grid-table__column-header-content">
+                <span className="grid-table__column-header-label">
+                  {column.header}
+                </span>
+              </div>
+            </th>
+          )
+        })}
+      </tr>
+    </thead>
+  </table>
+)
+
+export default GridTableHeader
