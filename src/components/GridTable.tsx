@@ -1,4 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { ForwardedRef, PointerEvent as ReactPointerEvent } from 'react'
 import useColumnMetrics from '../hooks/useColumnMetrics'
 import type { ColumnDefinitionInput as ColumnMetricsInput } from '../hooks/useColumnMetrics'
@@ -993,7 +994,9 @@ const GridTableComponent = (
   const handleGridScroll = useCallback(
     (event: React.UIEvent<HTMLDivElement>) => {
       if (editingCell) {
-        commitEditing()
+        flushSync(() => {
+          commitEditing()
+        })
       }
 
       handleScroll(event)
